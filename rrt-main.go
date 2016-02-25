@@ -8,7 +8,6 @@ import (
 	_ "image/png"
 	"log"
 	"math"
-	"math/rand"
 	"os"
 	"runtime"
 
@@ -18,9 +17,6 @@ import (
 	"github.com/harrydb/go/img/grayscale"
 	"github.com/llgcode/draw2d"
 	"github.com/lucasb-eyer/go-colorful"
-
-	"github.com/dhconnelly/rtreego"
-	"github.com/gonum/matrix/mat64"
 )
 
 var (
@@ -29,11 +25,8 @@ var (
 	width, height    int
 	redraw           = true
 	font             draw2d.FontData
-	obstacles        *image.Gray
 	obstaclesTexture uint32
-	rtree            *rtreego.Rtree
-	rrtRoot          *Node
-	maxSegment       float64
+	rrtstar          *Star
 )
 
 func reshape(window *glfw.Window, w, h int) {
@@ -256,7 +249,7 @@ func display() {
 
 	drawBackground(colorful.Hsv(210, 1, 0.6))
 
-	drawTree(rrtRoot)
+	drawTree(rrtstar.rrtRoot)
 
 	gl.Flush() /* Single buffered, so needs a flush. */
 }
@@ -265,144 +258,17 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func lineHasIntersection(obstacles *image.Gray, p1 image.Point, p2 image.Point, minObstacleColor uint8) bool {
-	dx := float64(float64(p2.X) - float64(p1.X))
-	dy := float64(float64(p2.Y) - float64(p1.Y))
-
-	m := 20000.0 // a big number for a vertical slope
-
-	if dx != 0 {
-		m = dy / dx
-	}
-
-	b := -m*float64(p1.X) + float64(p1.Y)
-
-	minX := int(math.Min(float64(p1.X), float64(p2.X)))
-	maxX := int(math.Max(float64(p1.X), float64(p2.X)))
-	for ix := minX; ix <= maxX; ix++ {
-		y := m*float64(ix) + b
-		if obstacles.GrayAt(ix, int(y)).Y > minObstacleColor {
-			return true
-		}
-	}
-
-	minY := int(math.Min(float64(p1.Y), float64(p2.Y)))
-	maxY := int(math.Max(float64(p1.Y), float64(p2.Y)))
-	for iY := minY; iY <= maxY; iY++ {
-		x := (float64(iY) - b) / m
-		if obstacles.GrayAt(int(x), iY).Y > minObstacleColor {
-			return true
-		}
-	}
-
-	return false
-}
-
-func randomPoint(dx int, dy int) image.Point {
-	point := image.Pt(int(rand.Int31n(int32(dx))), int(rand.Int31n(int32(dy))))
-
-	return point
-}
-
-func euclideanDistance(p1 image.Point, p2 image.Point) float64 {
-	dx := float64(p1.X - p2.X)
-	dy := float64(p1.Y - p2.Y)
-	ss := dx*dx + dy*dy
-	return math.Sqrt(ss)
-}
-
-func angleBetweenPoints(p1 image.Point, p2 image.Point) float64 {
-	return math.Atan2(float64(p2.Y-p1.Y), float64(p2.X-p1.X))
-}
-
-func sampleRrt(obstacleMatrix *mat64.Dense) {
-	point := randomPoint(width, height)
-
-	nnSpatial := rtree.NearestNeighbor(rtreego.Point{float64(point.X), float64(point.Y)})
-	nn := nnSpatial.(*Node)
-
-	dist := euclideanDistance(nn.point, point)
-
-	//log.Println(dist)
-
-	if dist > maxSegment {
-		angle := angleBetweenPoints(nn.point, point)
-		x := int(maxSegment*math.Cos(angle)) + nn.point.X
-		y := int(maxSegment*math.Sin(angle)) + nn.point.Y
-		point = image.Pt(x, y)
-	}
-
-	newNode := nn.AddChild(point, dist)
-	rtree.Insert(newNode)
-	//invalidate()
-}
-
-func sampleRrtStar(obstacles *image.Gray) {
-	point := randomPoint(width, height)
-
-	nnSpatial := rtree.NearestNeighbor(rtreego.Point{float64(point.X), float64(point.Y)})
-	nn := nnSpatial.(*Node)
-
-	dist := euclideanDistance(nn.point, point)
-
-	//log.Println(dist)
-
-	if dist > maxSegment {
-		angle := angleBetweenPoints(nn.point, point)
-		x := int(maxSegment*math.Cos(angle)) + nn.point.X
-		y := int(maxSegment*math.Sin(angle)) + nn.point.Y
-		point = image.Pt(x, y)
-	}
-
-	if obstacles.GrayAt(point.X, point.Y).Y < 50 {
-
-		//newNode := nn.AddChild(point, dist)
-		//rtree.Insert(newNode)
-		//invalidate()
-		rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
-		neighbors := rtree.SearchIntersect(rtreePoint.ToRect(3 * maxSegment))
-		neighborCosts := []float64{}
-		bestCost := 65000.0
-		var bestNeighbor *Node
-		for i, neighborSpatial := range neighbors {
-			neighbor := neighborSpatial.(*Node)
-			neighborCosts = append(neighborCosts, euclideanDistance(point, neighbor.point))
-			if neighborCosts[i] < bestCost {
-				bestCost = neighborCosts[i]
-				bestNeighbor = neighbor
-			}
-		}
-
-		if !lineHasIntersection(obstacles, point, bestNeighbor.point, 200) {
-			newNode := bestNeighbor.AddChild(point, bestCost)
-			rtree.Insert(newNode)
-
-			for i, neighborInterface := range neighbors {
-				neighbor := neighborInterface.(*Node)
-				if neighbor != bestNeighbor && !lineHasIntersection(obstacles, newNode.point, neighbor.point, 200) {
-					if neighborCosts[i]+newNode.cumulativeCost < neighbor.cumulativeCost {
-						neighbor.Rewire(newNode, neighborCosts[i])
-					}
-				}
-			}
-		}
-	}
-}
-
 func main() {
-	obstacles = readImageGray("dragon.png")
+	obstacles := readImageGray("dragon.png")
 	bounds := obstacles.Bounds()
 	width = bounds.Dx()
 	height = bounds.Dy()
 
 	//obstacleMatrix := mat64.NewDense(height, width, convertUint8ToFloat64(obstacles.Pix, 1/255.0))
 
-	rrtRoot = &Node{parent: nil, point: image.Pt(860, 260), cumulativeCost: 0}
-	rtree = rtreego.NewTree(2, 25, 50)
-	rtree.Insert(rrtRoot)
-	maxSegment = 20
-
 	//log.Print("%s", imgMatrix)
+
+	rrtstar = Create(obstacles, width, height)
 
 	err := glfw.Init()
 	if err != nil {
@@ -437,7 +303,7 @@ func main() {
 	for i := 0; !window.ShouldClose(); i++ {
 
 		if i < 15000 {
-			sampleRrtStar(obstacles)
+			rrtstar.SampleRrtStar()
 			if i%100 == 0 {
 				invalidate()
 			}
