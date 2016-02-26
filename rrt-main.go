@@ -216,14 +216,14 @@ func drawLine(p1 image.Point, p2 image.Point, color colorful.Color) {
 	gl.End()
 }
 
-func drawTree(node *rrtstar.Node) {
+func drawTree(node *rrtstar.Node, lineHue float64) {
 	for _, child := range node.Children {
-		hue := math.Max(0, 60-child.CumulativeCost/12.0)
-		drawLine(node.Point, child.Point, colorful.Hsv(hue, 1, 0.6))
-		drawTree(child)
+		hue := int(lineHue+child.CumulativeCost/12.0) % 360
+		drawLine(node.Point, child.Point, colorful.Hsv(float64(hue), 1, 0.6))
+		drawTree(child, lineHue)
 	}
 
-	drawPoint(node.Point, 2, colorful.Hsv(math.Max(0, 60-node.CumulativeCost/12.0), 1, 0.6))
+	drawPoint(node.Point, 2, colorful.Hsv(float64(int(lineHue+node.CumulativeCost/12.0)%360), 1, 0.6))
 }
 
 func drawPath(path []*image.Point, color colorful.Color, thickness float32) {
@@ -268,12 +268,12 @@ func display() {
 
 	drawBackground(colorful.Hsv(210, 1, 0.6))
 
-	drawTree(rrtStar.Root)
+	drawTree(rrtStar.Root, 250)
 
 	drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
 
 	drawPoint(*rrtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
-	drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(280, 1, 1))
+	drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
 
 	gl.Flush() /* Single buffered, so needs a flush. */
 }
@@ -285,6 +285,8 @@ func init() {
 func main() {
 	isFullscreen := flag.Bool("full", false, "the map will expand to fullscreen on the primary monitor if set")
 	isLooping := flag.Bool("loop", false, "will loop with random obstacles if set")
+	numObstacles := flag.Int("obstacles", 5, "sets the number of obstacles generated")
+	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
 	flag.Parse()
 
 	glfwErr := glfw.Init()
@@ -297,7 +299,7 @@ func main() {
 	height = 700
 	var monitor *glfw.Monitor
 	if *isFullscreen {
-		monitor = glfw.GetPrimaryMonitor()
+		monitor = glfw.GetMonitors()[*monitorNum]
 		vidMode := monitor.GetVideoMode()
 		width = vidMode.Width
 		height = vidMode.Height
@@ -323,7 +325,7 @@ func main() {
 
 		rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
 		//obstacles := readImageGray("dragon.png")
-		_, obstacles := rrtstar.GenerateObstacles(width, height, 5)
+		_, obstacles := rrtstar.GenerateObstacles(width, height, *numObstacles)
 		rrtStar = rrtstar.NewRrtStar(obstacles, width, height)
 
 		obstaclesTexture = getTextureGray(obstacles)
@@ -333,7 +335,7 @@ func main() {
 
 			if i < 30000 {
 				rrtStar.SampleRrtStar()
-				if i%100 == 0 {
+				if i%300 == 0 {
 					invalidate()
 				}
 			} else if *isLooping {
