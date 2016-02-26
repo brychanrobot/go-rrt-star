@@ -2,6 +2,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/draw"
@@ -261,26 +262,25 @@ func init() {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
+	isFullscreen := flag.Bool("full", false, "the map will expand to fullscreen on the primary monitor if set")
 
-	//obstacles := readImageGray("dragon.png")
-	_, obstacles := generateObstacles(700, 700, 5)
-	bounds := obstacles.Bounds()
-	width = bounds.Dx()
-	height = bounds.Dy()
-
-	//obstacleMatrix := mat64.NewDense(height, width, convertUint8ToFloat64(obstacles.Pix, 1/255.0))
-
-	//log.Print("%s", imgMatrix)
-
-	rrtstar = Create(obstacles, width, height)
-
-	err := glfw.Init()
-	if err != nil {
-		panic(err)
+	glfwErr := glfw.Init()
+	if glfwErr != nil {
+		panic(glfwErr)
 	}
 	defer glfw.Terminate()
-	window, err := glfw.CreateWindow(width, height, "Show RoundedRect", nil, nil)
+
+	width = 700
+	height = 700
+	var monitor *glfw.Monitor
+	if *isFullscreen {
+		monitor = glfw.GetPrimaryMonitor()
+		vidMode := monitor.GetVideoMode()
+		width = vidMode.Width
+		height = vidMode.Height
+	}
+
+	window, err := glfw.CreateWindow(width, height, "Show RoundedRect", monitor, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -289,21 +289,24 @@ func main() {
 	window.SetSizeCallback(reshape)
 	window.SetKeyCallback(onKey)
 	window.SetCharCallback(onChar)
-
 	glfw.SwapInterval(1)
 
-	err = gl.Init()
-	if err != nil {
-		panic(err)
+	glErr := gl.Init()
+	if glErr != nil {
+		panic(glErr)
 	}
 
 	fmt.Println(gl.GoStr(gl.GetString(gl.VERSION)))
 	fmt.Println(gl.GoStr(gl.GetString(gl.VENDOR)))
 	fmt.Println(gl.GoStr(gl.GetString(gl.RENDERER)))
 
+	rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
+	//obstacles := readImageGray("dragon.png")
+	_, obstacles := generateObstacles(width, height, 5)
+	rrtstar = Create(obstacles, width, height)
+
 	obstaclesTexture = getTextureGray(obstacles)
 	defer gl.DeleteTextures(1, &obstaclesTexture)
-
 	reshape(window, width, height)
 	for i := 0; !window.ShouldClose(); i++ {
 
