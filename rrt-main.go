@@ -3,7 +3,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"image"
 	"image/draw"
 	_ "image/png"
@@ -14,6 +13,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/brychanrobot/rrt-star/rrtstar"
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
@@ -29,7 +29,7 @@ var (
 	redraw           = true
 	font             draw2d.FontData
 	obstaclesTexture uint32
-	rrtstar          *Star
+	rrtStar          *rrtstar.RrtStar
 )
 
 func reshape(window *glfw.Window, w, h int) {
@@ -216,14 +216,30 @@ func drawLine(p1 image.Point, p2 image.Point, color colorful.Color) {
 	gl.End()
 }
 
-func drawTree(node *Node) {
-	for _, child := range node.children {
-		hue := math.Max(0, 60-child.cumulativeCost/12.0)
-		drawLine(node.point, child.point, colorful.Hsv(hue, 1, 1))
+func drawTree(node *rrtstar.Node) {
+	for _, child := range node.Children {
+		hue := math.Max(0, 60-child.CumulativeCost/12.0)
+		drawLine(node.Point, child.Point, colorful.Hsv(hue, 1, 0.6))
 		drawTree(child)
 	}
 
-	drawPoint(node.point, 2, colorful.Hsv(math.Max(0, 60-node.cumulativeCost/12.0), 1, 1))
+	drawPoint(node.Point, 2, colorful.Hsv(math.Max(0, 60-node.CumulativeCost/12.0), 1, 0.6))
+}
+
+func drawPath(path []*image.Point, color colorful.Color, thickness float32) {
+	//gl.Enable(gl.LINE_SMOOTH)
+	//gl.Enable(gl.BLEND)
+
+	gl.LineWidth(thickness)
+	gl.Begin(gl.LINE_STRIP)
+	gl.Color3d(color.R, color.G, color.B)
+	for _, point := range path {
+		gl.Vertex2d(float64(point.X), float64(point.Y))
+	}
+	gl.End()
+
+	//gl.Disable(gl.LINE_SMOOTH)
+	//gl.Disable(gl.BLEND)
 }
 
 func drawBackground(color colorful.Color) {
@@ -252,7 +268,12 @@ func display() {
 
 	drawBackground(colorful.Hsv(210, 1, 0.6))
 
-	drawTree(rrtstar.rrtRoot)
+	drawTree(rrtStar.Root)
+
+	drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
+
+	drawPoint(*rrtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
+	drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(280, 1, 1))
 
 	gl.Flush() /* Single buffered, so needs a flush. */
 }
@@ -263,6 +284,8 @@ func init() {
 
 func main() {
 	isFullscreen := flag.Bool("full", false, "the map will expand to fullscreen on the primary monitor if set")
+	isLooping := flag.Bool("loop", false, "will loop with random obstacles if set")
+	flag.Parse()
 
 	glfwErr := glfw.Init()
 	if glfwErr != nil {
@@ -280,7 +303,7 @@ func main() {
 		height = vidMode.Height
 	}
 
-	window, err := glfw.CreateWindow(width, height, "Show RoundedRect", monitor, nil)
+	window, err := glfw.CreateWindow(width, height, "rrt*", monitor, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -296,36 +319,37 @@ func main() {
 		panic(glErr)
 	}
 
-	fmt.Println(gl.GoStr(gl.GetString(gl.VERSION)))
-	fmt.Println(gl.GoStr(gl.GetString(gl.VENDOR)))
-	fmt.Println(gl.GoStr(gl.GetString(gl.RENDERER)))
+	for *isLooping && !window.ShouldClose() {
 
-	rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
-	//obstacles := readImageGray("dragon.png")
-	_, obstacles := generateObstacles(width, height, 5)
-	rrtstar = Create(obstacles, width, height)
+		rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
+		//obstacles := readImageGray("dragon.png")
+		_, obstacles := rrtstar.GenerateObstacles(width, height, 5)
+		rrtStar = rrtstar.NewRrtStar(obstacles, width, height)
 
-	obstaclesTexture = getTextureGray(obstacles)
-	defer gl.DeleteTextures(1, &obstaclesTexture)
-	reshape(window, width, height)
-	for i := 0; !window.ShouldClose(); i++ {
+		obstaclesTexture = getTextureGray(obstacles)
+		defer gl.DeleteTextures(1, &obstaclesTexture)
+		reshape(window, width, height)
+		for i := 0; !window.ShouldClose(); i++ {
 
-		if i < 15000 {
-			rrtstar.SampleRrtStar()
-			if i%100 == 0 {
-				invalidate()
+			if i < 30000 {
+				rrtStar.SampleRrtStar()
+				if i%100 == 0 {
+					invalidate()
+				}
+			} else if *isLooping {
+				break
 			}
-		}
 
-		if redraw {
-			log.Println("redrawing", i)
+			if redraw {
+				log.Println("redrawing", i)
 
-			display()
-			window.SwapBuffers()
-			redraw = false
+				display()
+				window.SwapBuffers()
+				redraw = false
+			}
+			glfw.PollEvents()
+			//		time.Sleep(2 * time.Second)
 		}
-		glfw.PollEvents()
-		//		time.Sleep(2 * time.Second)
 	}
 }
 

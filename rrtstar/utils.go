@@ -1,4 +1,4 @@
-package main
+package rrtstar
 
 import (
 	"image"
@@ -45,7 +45,7 @@ func hasIntersection(rect *image.Rectangle, obstacles []*image.Rectangle) bool {
 	return false
 }
 
-func generateObstacles(width int, height int, count int) ([]*image.Rectangle, *image.Gray) {
+func GenerateObstacles(width int, height int, count int) ([]*image.Rectangle, *image.Gray) {
 	var obstacles []*image.Rectangle
 	//mapBottomRight := image.Pt(width, height)
 	for x := 0; x < count; x++ {
