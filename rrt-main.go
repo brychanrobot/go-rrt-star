@@ -259,7 +259,8 @@ func init() {
 }
 
 func main() {
-	obstacles := readImageGray("dragon.png")
+	//obstacles := readImageGray("dragon.png")
+	_, obstacles := generateObstacles(700, 700, 5)
 	bounds := obstacles.Bounds()
 	width = bounds.Dx()
 	height = bounds.Dy()

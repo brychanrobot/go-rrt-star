@@ -104,7 +104,8 @@ func (v *Viewshed) addTriangle(angle1 float64, angle2 float64, segment *Segment)
 	v.output = append(v.output, pEnd)
 }
 
-func (v *Viewshed) SetLightLocation(x float64, y float64) {
+// UpdateCenterLocation updates the center and recalculates all angles
+func (v *Viewshed) UpdateCenterLocation(x float64, y float64) {
 	v.center = Point{x, y}
 
 	for _, segment := range v.segments {
@@ -125,7 +126,8 @@ func (v *Viewshed) SetLightLocation(x float64, y float64) {
 	}
 }
 
-func (v *Viewshed) sweep(maxAngle float64) {
+// Sweep computes a visibility polygon and returns all of the points
+func (v *Viewshed) Sweep(maxAngle float64) {
 	v.output = v.output[:0] // clear output
 	sort.Sort(ByAngleThenBegin(v.endpoints))
 	v.open = v.open[:0] // clear open
