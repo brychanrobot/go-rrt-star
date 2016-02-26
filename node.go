@@ -30,6 +30,7 @@ func (n *Node) RemoveChild(child *Node) {
 	for i, value := range n.children {
 		if value == child {
 			n.children = append(n.children[:i], n.children[i+1:]...) // this looks like voodoo, but it's just deleting element i gotta love go
+			break
 		}
 	}
 }
