@@ -8,8 +8,10 @@ import (
 	_ "image/png"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v2.1/gl"
@@ -220,7 +222,7 @@ func drawTree(node *Node) {
 		drawTree(child)
 	}
 
-	drawPoint(node.point, 2, colorful.Color{1, 0, 1})
+	drawPoint(node.point, 2, colorful.Hsv(math.Max(0, 60-node.cumulativeCost/12.0), 1, 1))
 }
 
 func drawBackground(color colorful.Color) {
@@ -259,6 +261,8 @@ func init() {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
+
 	//obstacles := readImageGray("dragon.png")
 	_, obstacles := generateObstacles(700, 700, 5)
 	bounds := obstacles.Bounds()

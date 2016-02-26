@@ -77,6 +77,8 @@ func generateObstacleImage(width int, height int, obstacles []*image.Rectangle) 
 		draw2dkit.Rectangle(gc, float64(obstacle.Min.X), float64(obstacle.Min.Y), float64(obstacle.Max.X), float64(obstacle.Max.Y))
 	}
 
+	gc.Fill()
+
 	gray := grayscale.Convert(img, grayscale.ToGrayLuma709)
 
 	return gray
