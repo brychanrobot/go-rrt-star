@@ -348,10 +348,28 @@ func main() {
 				display()
 				window.SwapBuffers()
 				redraw = false
+
+				//saveFrame()
 			}
 			glfw.PollEvents()
 			//		time.Sleep(2 * time.Second)
 		}
+	}
+}
+
+func saveFrame() {
+	n := 4 * width * height
+
+	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
+
+	pixels := make([]byte, n)
+
+	log.Println("reading pixels")
+	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&pixels))
+	log.Println("past reading pixels")
+	if gl.NO_ERROR != gl.GetError() {
+		log.Println("panic pixels")
+		panic("unable to read pixels")
 	}
 }
 
