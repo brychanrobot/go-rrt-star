@@ -4,21 +4,24 @@ import (
 	"image"
 	"math"
 
+	"github.com/brychanrobot/rrt-star/viewshed"
 	"github.com/dhconnelly/rtreego"
 )
 
 // RrtStar holds all of the information for an rrt*
 type RrtStar struct {
-	obstacles  *image.Gray
-	rtree      *rtreego.Rtree
-	Root       *Node
-	maxSegment float64
-	width      int
-	height     int
-	StartPoint *image.Point
-	EndPoint   *image.Point
-	endNode    *Node
-	BestPath   []*image.Point
+	obstacleImage *image.Gray
+	obstacleRects []*image.Rectangle
+	rtree         *rtreego.Rtree
+	Root          *Node
+	maxSegment    float64
+	width         int
+	height        int
+	StartPoint    *image.Point
+	EndPoint      *image.Point
+	endNode       *Node
+	BestPath      []*image.Point
+	Viewshed      viewshed.Viewshed
 }
 
 func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) image.Point {
@@ -34,22 +37,29 @@ func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) image.Poi
 }
 
 // NewRrtStar creates a new rrt Star
-func NewRrtStar(obstacles *image.Gray, width int, height int) *RrtStar {
-	startPoint := randomOpenAreaPoint(obstacles, width, height)
-	endPoint := randomOpenAreaPoint(obstacles, width, height)
+func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, width int, height int) *RrtStar {
+	startPoint := randomOpenAreaPoint(obstacleImage, width, height)
+	endPoint := randomOpenAreaPoint(obstacleImage, width, height)
 	rrtRoot := &Node{parent: nil, Point: startPoint, CumulativeCost: 0}
 	rtree := rtreego.NewTree(2, 25, 50)
 	rtree.Insert(rrtRoot)
 
-	return &RrtStar{
-		obstacles:  obstacles,
-		rtree:      rtree,
-		Root:       rrtRoot,
-		maxSegment: 20,
-		width:      width,
-		height:     height,
-		StartPoint: &startPoint,
-		EndPoint:   &endPoint}
+	rrtStar := &RrtStar{
+		obstacleImage: obstacleImage,
+		obstacleRects: obstacleRects,
+		rtree:         rtree,
+		Root:          rrtRoot,
+		maxSegment:    20,
+		width:         width,
+		height:        height,
+		StartPoint:    &startPoint,
+		EndPoint:      &endPoint}
+
+	rrtStar.Viewshed.LoadMap(float64(width), float64(height), 0, obstacleRects, nil)
+	rrtStar.Viewshed.UpdateCenterLocation(float64(startPoint.X), float64(startPoint.Y))
+	rrtStar.Viewshed.Sweep()
+
+	return rrtStar
 }
 
 func (r *RrtStar) lineIntersectsObstacle(p1 image.Point, p2 image.Point, minObstacleColor uint8) bool {
@@ -68,7 +78,7 @@ func (r *RrtStar) lineIntersectsObstacle(p1 image.Point, p2 image.Point, minObst
 	maxX := int(math.Max(float64(p1.X), float64(p2.X)))
 	for ix := minX; ix <= maxX; ix++ {
 		y := m*float64(ix) + b
-		if r.obstacles.GrayAt(ix, int(y)).Y > minObstacleColor {
+		if r.obstacleImage.GrayAt(ix, int(y)).Y > minObstacleColor {
 			return true
 		}
 	}
@@ -77,7 +87,7 @@ func (r *RrtStar) lineIntersectsObstacle(p1 image.Point, p2 image.Point, minObst
 	maxY := int(math.Max(float64(p1.Y), float64(p2.Y)))
 	for iY := minY; iY <= maxY; iY++ {
 		x := (float64(iY) - b) / m
-		if r.obstacles.GrayAt(int(x), iY).Y > minObstacleColor {
+		if r.obstacleImage.GrayAt(int(x), iY).Y > minObstacleColor {
 			return true
 		}
 	}
@@ -168,7 +178,7 @@ func (r *RrtStar) SampleRrtStar() {
 		point = image.Pt(x, y)
 	}
 
-	if r.obstacles.GrayAt(point.X, point.Y).Y < 50 {
+	if r.obstacleImage.GrayAt(point.X, point.Y).Y < 50 {
 
 		rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
 		neighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))

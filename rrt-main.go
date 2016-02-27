@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/brychanrobot/rrt-star/rrtstar"
+	"github.com/brychanrobot/rrt-star/viewshed"
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
@@ -30,6 +31,9 @@ var (
 	font             draw2d.FontData
 	obstaclesTexture uint32
 	rrtStar          *rrtstar.RrtStar
+
+	cursorX float64
+	cursorY float64
 )
 
 func reshape(window *glfw.Window, w, h int) {
@@ -227,7 +231,7 @@ func drawTree(node *rrtstar.Node, lineHue float64) {
 }
 
 func drawPath(path []*image.Point, color colorful.Color, thickness float32) {
-	//gl.Enable(gl.LINE_SMOOTH)
+	gl.Enable(gl.LINE_SMOOTH)
 	//gl.Enable(gl.BLEND)
 
 	gl.LineWidth(thickness)
@@ -238,8 +242,46 @@ func drawPath(path []*image.Point, color colorful.Color, thickness float32) {
 	}
 	gl.End()
 
-	//gl.Disable(gl.LINE_SMOOTH)
+	gl.Disable(gl.LINE_SMOOTH)
 	//gl.Disable(gl.BLEND)
+}
+
+func drawViewshed(path []*viewshed.Point, center *viewshed.Point, color colorful.Color, thickness float32) {
+	gl.Enable(gl.LINE_SMOOTH)
+	//gl.Enable(gl.SMOOTH)
+	//gl.ShadeModel(gl.SMOOTH_QUADRATIC_CURVE_TO_NV)
+
+	gl.Begin(gl.TRIANGLE_FAN)
+	gl.Color4d(color.R, color.G, color.B, 0.2)
+	gl.Vertex2d(center.X, -center.Y)
+	for _, point := range path {
+		gl.Vertex2d(point.X, -point.Y)
+	}
+	gl.Vertex2d(path[0].X, -path[0].Y)
+	gl.End()
+
+	gl.LineWidth(thickness)
+	gl.Begin(gl.LINE_LOOP)
+	gl.Color4d(color.R, color.G, color.B, 1)
+	for _, point := range path {
+		gl.Vertex2d(point.X, -point.Y)
+	}
+	gl.End()
+
+	//gl.Disable(gl.SMOOTH)
+	gl.Disable(gl.LINE_SMOOTH)
+	//gl.Disable(gl.BLEND)
+}
+
+func drawViewshedSegments(segments []*viewshed.Segment, color colorful.Color, thickness float32) {
+	gl.LineWidth(thickness)
+	gl.Begin(gl.LINES)
+	gl.Color3d(color.R, color.G, color.B)
+	for _, segment := range segments {
+		gl.Vertex2d(segment.P1.X, -segment.P1.Y)
+		gl.Vertex2d(segment.P2.X, -segment.P2.Y)
+	}
+	gl.End()
 }
 
 func drawBackground(color colorful.Color) {
@@ -268,7 +310,10 @@ func display() {
 
 	drawBackground(colorful.Hsv(210, 1, 0.6))
 
-	drawTree(rrtStar.Root, 250)
+	//drawViewshedSegments(rrtStar.Viewshed.Segments, colorful.Hsv(280, 1, 1), 3)
+	drawViewshed(rrtStar.Viewshed.ViewablePolygon, &rrtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
+
+	//drawTree(rrtStar.Root, 250)
 
 	drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
 
@@ -283,10 +328,12 @@ func init() {
 }
 
 func main() {
-	isFullscreen := flag.Bool("full", false, "the map will expand to fullscreen on the primary monitor if set")
+	isFullscreen := flag.Bool("full", true, "the map will expand to fullscreen on the primary monitor if set")
 	isLooping := flag.Bool("loop", false, "will loop with random obstacles if set")
-	numObstacles := flag.Int("obstacles", 5, "sets the number of obstacles generated")
+	numObstacles := flag.Int("obstacles", 1, "sets the number of obstacles generated")
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
+	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
+	iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
 	flag.Parse()
 
 	glfwErr := glfw.Init()
@@ -314,6 +361,7 @@ func main() {
 	window.SetSizeCallback(reshape)
 	window.SetKeyCallback(onKey)
 	window.SetCharCallback(onChar)
+	window.SetCursorPosCallback(onCursor)
 	glfw.SwapInterval(1)
 
 	glErr := gl.Init()
@@ -321,29 +369,35 @@ func main() {
 		panic(glErr)
 	}
 
-	for *isLooping && !window.ShouldClose() {
+	for !window.ShouldClose() {
 
 		rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
 		//obstacles := readImageGray("dragon.png")
-		_, obstacles := rrtstar.GenerateObstacles(width, height, *numObstacles)
-		rrtStar = rrtstar.NewRrtStar(obstacles, width, height)
+		obstacleRects, obstacleImage := rrtstar.GenerateObstacles(width, height, *numObstacles)
+		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, width, height)
 
-		obstaclesTexture = getTextureGray(obstacles)
+		obstaclesTexture = getTextureGray(obstacleImage)
 		defer gl.DeleteTextures(1, &obstaclesTexture)
 		reshape(window, width, height)
 		for i := 0; !window.ShouldClose(); i++ {
 
-			if i < 30000 {
+			if i < *iterations {
 				rrtStar.SampleRrtStar()
-				if i%300 == 0 {
+				if i%*iterationsPerFrame == 0 {
 					invalidate()
 				}
+
+				if cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y {
+					rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
+					rrtStar.Viewshed.Sweep()
+				}
+
 			} else if *isLooping {
 				break
 			}
 
 			if redraw {
-				log.Println("redrawing", i)
+				//log.Println("redrawing", i)
 
 				display()
 				window.SwapBuffers()
@@ -383,4 +437,9 @@ func onKey(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods 
 		key == glfw.KeyQ && action == glfw.Press:
 		w.SetShouldClose(true)
 	}
+}
+
+func onCursor(w *glfw.Window, xpos float64, ypos float64) {
+	cursorX = xpos
+	cursorY = ypos
 }
