@@ -55,7 +55,7 @@ func GenerateObstacles(width int, height int, count int) ([]*image.Rectangle, *i
 			topLeft := randomPoint(int(width), int(height))
 			bottomRight := randomPoint(int(width), int(height))
 			rect = image.Rect(topLeft.X, topLeft.Y, bottomRight.X, bottomRight.Y)
-			if !hasIntersection(&rect, obstacles) {
+			if rect.Dx() > 2 && rect.Dy() > 2 && !hasIntersection(&rect, obstacles) {
 				break
 			}
 		}

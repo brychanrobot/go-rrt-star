@@ -90,8 +90,8 @@ func (v *Viewshed) addSegmentsFromRectangle(rect *image.Rectangle) {
 }
 
 func (v *Viewshed) addSegment(x1 float64, y1 float64, x2 float64, y2 float64) {
-	p1 := EndPoint{Point: &Point{x1, -y1}, visualize: true}
-	p2 := EndPoint{Point: &Point{x2, -y2}, visualize: false} //not sure why visualize is false
+	p1 := EndPoint{Point: &Point{x1, y1}, visualize: true}
+	p2 := EndPoint{Point: &Point{x2, y2}, visualize: false} //not sure why visualize is false
 
 	segment := Segment{P1: &p1, P2: &p2}
 	p1.segment = &segment
@@ -129,7 +129,7 @@ func (v *Viewshed) addTriangle(angle1 float64, angle2 float64, segment *Segment)
 
 // UpdateCenterLocation updates the center and recalculates all angles
 func (v *Viewshed) UpdateCenterLocation(x float64, y float64) {
-	y = -y
+	//y = -y
 	v.Center = Point{x, y}
 
 	for _, segment := range v.Segments {

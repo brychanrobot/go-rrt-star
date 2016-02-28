@@ -253,18 +253,18 @@ func drawViewshed(path []*viewshed.Point, center *viewshed.Point, color colorful
 
 	gl.Begin(gl.TRIANGLE_FAN)
 	gl.Color4d(color.R, color.G, color.B, 0.2)
-	gl.Vertex2d(center.X, -center.Y)
+	gl.Vertex2d(center.X, center.Y)
 	for _, point := range path {
-		gl.Vertex2d(point.X, -point.Y)
+		gl.Vertex2d(point.X, point.Y)
 	}
-	gl.Vertex2d(path[0].X, -path[0].Y)
+	gl.Vertex2d(path[0].X, path[0].Y)
 	gl.End()
 
 	gl.LineWidth(thickness)
 	gl.Begin(gl.LINE_LOOP)
 	gl.Color4d(color.R, color.G, color.B, 1)
 	for _, point := range path {
-		gl.Vertex2d(point.X, -point.Y)
+		gl.Vertex2d(point.X, point.Y)
 	}
 	gl.End()
 
@@ -278,8 +278,8 @@ func drawViewshedSegments(segments []*viewshed.Segment, color colorful.Color, th
 	gl.Begin(gl.LINES)
 	gl.Color3d(color.R, color.G, color.B)
 	for _, segment := range segments {
-		gl.Vertex2d(segment.P1.X, -segment.P1.Y)
-		gl.Vertex2d(segment.P2.X, -segment.P2.Y)
+		gl.Vertex2d(segment.P1.X, segment.P1.Y)
+		gl.Vertex2d(segment.P2.X, segment.P2.Y)
 	}
 	gl.End()
 }
