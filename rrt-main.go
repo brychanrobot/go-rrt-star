@@ -30,6 +30,7 @@ var (
 	redraw           = true
 	font             draw2d.FontData
 	obstaclesTexture uint32
+	obstacleRects    []*image.Rectangle
 	rrtStar          *rrtstar.RrtStar
 
 	cursorX float64
@@ -214,6 +215,7 @@ func drawPoint(point image.Point, radius float32, color colorful.Color) {
 
 func drawLine(p1 image.Point, p2 image.Point, color colorful.Color) {
 	gl.Color3d(color.R, color.G, color.B)
+	gl.LineWidth(1)
 	gl.Begin(gl.LINES)
 	gl.Vertex2d(float64(p1.X), float64(p1.Y))
 	gl.Vertex2d(float64(p2.X), float64(p2.Y))
@@ -289,31 +291,43 @@ func drawBackground(color colorful.Color) {
 	gl.Enable(gl.TEXTURE_2D)
 	gl.Begin(gl.QUADS)
 	gl.TexCoord2f(0, 0)
-	gl.Vertex3f(0, 0, 0)
+	gl.Vertex2f(0, 0)
 
 	gl.TexCoord2f(0, 1)
-	gl.Vertex3f(0, float32(height), 0)
+	gl.Vertex2f(0, float32(height))
 
 	gl.TexCoord2f(1, 1)
-	gl.Vertex3f(float32(width), float32(height), 0)
+	gl.Vertex2f(float32(width), float32(height))
 
 	gl.TexCoord2f(1, 0)
-	gl.Vertex3f(float32(width), 0, 0)
+	gl.Vertex2f(float32(width), 0)
 	gl.End()
 	gl.Disable(gl.TEXTURE_2D)
 }
 
+func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
+	gl.Begin(gl.QUADS)
+	gl.Color3d(color.R, color.G, color.B)
+	for _, rect := range obstacleRects {
+		gl.Vertex2d(float64(rect.Min.X), float64(rect.Min.Y))
+		gl.Vertex2d(float64(rect.Max.X), float64(rect.Min.Y))
+		gl.Vertex2d(float64(rect.Max.X), float64(rect.Max.Y))
+		gl.Vertex2d(float64(rect.Min.X), float64(rect.Max.Y))
+	}
+	gl.End()
+}
+
 func display() {
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	gl.ClearColor(0, 0, 0, 0)
 
-	gl.LineWidth(1)
-
-	drawBackground(colorful.Hsv(210, 1, 0.6))
+	//drawBackground(colorful.Hsv(210, 1, 0.6))
+	drawObstacles(obstacleRects, colorful.Hsv(210, 1, 0.6))
 
 	//drawViewshedSegments(rrtStar.Viewshed.Segments, colorful.Hsv(280, 1, 1), 3)
 	drawViewshed(rrtStar.Viewshed.ViewablePolygon, &rrtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
 
-	//drawTree(rrtStar.Root, 250)
+	drawTree(rrtStar.Root, 250)
 
 	drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
 
@@ -328,9 +342,9 @@ func init() {
 }
 
 func main() {
-	isFullscreen := flag.Bool("full", true, "the map will expand to fullscreen on the primary monitor if set")
-	isLooping := flag.Bool("loop", false, "will loop with random obstacles if set")
-	numObstacles := flag.Int("obstacles", 1, "sets the number of obstacles generated")
+	isFullscreen := flag.Bool("full", false, "the map will expand to fullscreen on the primary monitor if set")
+	isLooping := flag.Bool("loop", true, "will loop with random obstacles if set")
+	numObstacles := flag.Int("obstacles", 15, "sets the number of obstacles generated")
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
 	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
 	iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
@@ -373,7 +387,8 @@ func main() {
 
 		rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
 		//obstacles := readImageGray("dragon.png")
-		obstacleRects, obstacleImage := rrtstar.GenerateObstacles(width, height, *numObstacles)
+		var obstacleImage *image.Gray
+		obstacleRects, obstacleImage = rrtstar.GenerateObstacles(width, height, *numObstacles)
 		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, width, height)
 
 		obstaclesTexture = getTextureGray(obstacleImage)
