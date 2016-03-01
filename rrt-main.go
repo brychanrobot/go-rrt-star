@@ -5,7 +5,7 @@ import (
 	"flag"
 	"image"
 	"image/draw"
-	_ "image/png"
+	"image/png"
 	"log"
 	"math"
 	"math/rand"
@@ -32,6 +32,7 @@ var (
 	obstaclesTexture uint32
 	obstacleRects    []*image.Rectangle
 	rrtStar          *rrtstar.RrtStar
+	frames           []*image.RGBA
 
 	cursorX float64
 	cursorY float64
@@ -343,11 +344,12 @@ func init() {
 
 func main() {
 	isFullscreen := flag.Bool("full", false, "the map will expand to fullscreen on the primary monitor if set")
-	isLooping := flag.Bool("loop", true, "will loop with random obstacles if set")
+	isLooping := flag.Bool("loop", false, "will loop with random obstacles if set")
 	numObstacles := flag.Int("obstacles", 15, "sets the number of obstacles generated")
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
 	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
 	iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
+	record := flag.Bool("r", false, "records the session")
 	flag.Parse()
 
 	glfwErr := glfw.Init()
@@ -418,7 +420,9 @@ func main() {
 				window.SwapBuffers()
 				redraw = false
 
-				//saveFrame()
+				if *record {
+					saveFrame(width, height, false)
+				}
 			}
 			glfw.PollEvents()
 			//		time.Sleep(2 * time.Second)
@@ -426,19 +430,27 @@ func main() {
 	}
 }
 
-func saveFrame() {
-	n := 4 * width * height
+func saveFrame(width int, height int, toFile bool) {
 
-	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
+	screenshot := image.NewRGBA(image.Rect(0, 0, width, height))
 
-	pixels := make([]byte, n)
-
-	log.Println("reading pixels")
-	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&pixels))
-	log.Println("past reading pixels")
+	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(screenshot.Pix))
+	//gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&screenshot.Pix[0]))
 	if gl.NO_ERROR != gl.GetError() {
 		log.Println("panic pixels")
 		panic("unable to read pixels")
+	}
+
+	if toFile {
+		filename := time.Now().Format("video/2006Jan02_15-04-05.999.png")
+
+		os.Mkdir("video", os.ModeDir)
+		outFile, _ := os.Create(filename)
+		defer outFile.Close()
+
+		png.Encode(outFile, screenshot)
+	} else {
+		frames = append(frames, screenshot)
 	}
 }
 
