@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"image"
 	"image/draw"
 	"image/png"
@@ -13,13 +14,13 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/brychanrobot/gltext"
 	"github.com/brychanrobot/rrt-star/rrtstar"
 	"github.com/brychanrobot/rrt-star/viewshed"
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
 	"github.com/harrydb/go/img/grayscale"
-	"github.com/llgcode/draw2d"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -28,7 +29,7 @@ var (
 	rotate           int
 	width, height    int
 	redraw           = true
-	font             draw2d.FontData
+	font             *gltext.Font
 	obstaclesTexture uint32
 	obstacleRects    []*image.Rectangle
 	rrtStar          *rrtstar.RrtStar
@@ -102,6 +103,16 @@ func readImageGray(filename string) *image.Gray {
 	//log.Println(gray.Pix)
 
 	return gray
+}
+
+// loadFont loads the specified font at the given scale.
+func loadFont(file string, scale int32) (*gltext.Font, error) {
+	fd, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+	return gltext.LoadTruetype(fd, scale, 32, 127, gltext.LeftToRight)
 }
 
 func convertUint8ToFloat64(in []uint8, multiplier float64) []float64 {
@@ -318,7 +329,18 @@ func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
 	gl.End()
 }
 
-func display() {
+func drawString(value string, point image.Point, color colorful.Color) {
+	sw, sh := font.Metrics(value)
+	gl.Color4d(0, 0, 0, 0)
+	gl.Rectd(float64(point.X), float64(point.Y), float64(sw), float64(sh))
+
+	// Render the string.
+	gl.Color3d(color.R, color.G, color.B)
+
+	font.Printf(float32(point.X), float32(point.Y), value)
+}
+
+func display(iteration int) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.ClearColor(0, 0, 0, 0)
 
@@ -334,6 +356,8 @@ func display() {
 
 	drawPoint(*rrtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
 	drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
+
+	drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), colorful.Hsv(180, 1, 1))
 
 	gl.Flush() /* Single buffered, so needs a flush. */
 }
@@ -385,6 +409,13 @@ func main() {
 		panic(glErr)
 	}
 
+	font, err = loadFont("luxisr.ttf", int32(44))
+	if err != nil {
+		log.Printf("LoadFont: %v", err)
+		return
+	}
+	defer font.Release()
+
 	for !window.ShouldClose() {
 
 		rand.Seed(time.Now().UnixNano()) // apparently golang random is deterministic by default
@@ -416,7 +447,7 @@ func main() {
 			if redraw {
 				//log.Println("redrawing", i)
 
-				display()
+				display(i)
 				window.SwapBuffers()
 				redraw = false
 
