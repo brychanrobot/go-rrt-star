@@ -363,15 +363,16 @@ func drawString(value string, point image.Point, color colorful.Color) {
 	font.Printf(float32(point.X), float32(point.Y), value)
 }
 
-func display(iteration int, showTree bool) {
+func display(iteration int, showTree bool, showViewshed bool) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.ClearColor(0, 0, 0, 0)
 
 	//drawBackground(colorful.Hsv(210, 1, 0.6))
 	drawObstacles(obstacleRects, colorful.Hsv(210, 1, 0.6))
 
-	//drawViewshedSegments(rrtStar.Viewshed.Segments, colorful.Hsv(280, 1, 1), 3)
-	drawViewshed(rrtStar.Viewshed.ViewablePolygon, &rrtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
+	if showViewshed {
+		drawViewshed(rrtStar.Viewshed.ViewablePolygon, &rrtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
+	}
 
 	if showTree {
 		drawTreeFaster(rrtStar.Root, 250)
@@ -399,6 +400,7 @@ func main() {
 	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
 	iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
 	showTree := flag.Bool("tree", false, "draws the tree")
+	showViewshed := flag.Bool("viewshed", false, "draws the viewshed at the mouse cursor location")
 	record := flag.Bool("r", false, "records the session")
 	flag.Parse()
 
@@ -463,7 +465,7 @@ func main() {
 					invalidate()
 				}
 
-				if cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y {
+				if *showViewshed && (cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y) {
 					rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
 					rrtStar.Viewshed.Sweep()
 					fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
@@ -476,7 +478,7 @@ func main() {
 			if redraw {
 				//log.Println("redrawing", i)
 
-				display(i, *showTree)
+				display(i, *showTree, *showViewshed)
 				window.SwapBuffers()
 				redraw = false
 
