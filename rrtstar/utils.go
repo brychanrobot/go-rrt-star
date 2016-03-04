@@ -25,7 +25,7 @@ func randomPointFromRectangle(rect *image.Rectangle) image.Point {
 	return point
 }
 
-func euclideanDistance(p1 image.Point, p2 image.Point) float64 {
+func euclideanDistance(p1 *image.Point, p2 *image.Point) float64 {
 	dx := float64(p1.X - p2.X)
 	dy := float64(p1.Y - p2.Y)
 	ss := dx*dx + dy*dy

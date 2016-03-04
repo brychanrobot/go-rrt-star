@@ -6,7 +6,10 @@ import (
 	"github.com/dhconnelly/rtreego"
 )
 
-var tolerance = 0.01
+var (
+	tolerance = 0.01
+	unseenK   = 0.000001
+)
 
 // Node Represents an RRT Node
 type Node struct {
@@ -14,13 +17,17 @@ type Node struct {
 	Point          image.Point
 	Children       []*Node
 	CumulativeCost float64
+	UnseenArea     float64
 }
 
 // AddChild adds a child and updates cost
-func (n *Node) AddChild(point image.Point, cost float64) *Node {
-	newNode := Node{parent: n, Point: point, CumulativeCost: n.CumulativeCost + cost}
+func (n *Node) AddChild(point image.Point, cost float64, unseenArea float64) *Node {
+	newNode := Node{
+		parent:         n,
+		Point:          point,
+		CumulativeCost: n.CumulativeCost + cost + unseenArea*unseenK,
+		UnseenArea:     unseenArea}
 	n.Children = append(n.Children, &newNode)
-	//n.children.PushBack(&newNode)
 
 	return &newNode
 }
@@ -49,7 +56,7 @@ func (n *Node) Rewire(newParent *Node, cost float64) {
 	n.parent.RemoveChild(n)
 	newParent.Children = append(newParent.Children, n)
 	n.parent = newParent
-	n.updateCumulativeCost(newParent.CumulativeCost + cost)
+	n.updateCumulativeCost(newParent.CumulativeCost + cost + n.UnseenArea*unseenK)
 }
 
 // Bounds returns empty rect with top left at the node point for rtreego
