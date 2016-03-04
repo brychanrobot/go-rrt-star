@@ -127,6 +127,28 @@ func (v *Viewshed) addTriangle(angle1 float64, angle2 float64, segment *Segment)
 	v.ViewablePolygon = append(v.ViewablePolygon, pEnd)
 }
 
+// Area2DPolygon compute the area of a 2D polygon
+// http://geomalgorithms.com/a01-_area.html#2D%20Polygons
+//  Input:  int n = the number of vertices in the polygon
+//          Point* V = an array of n+1 vertex points with V[n]=V[0]
+//  Return: the (float) area of the polygon
+func Area2DPolygon(points []*Point) float64 {
+	n := len(points)
+	closedPoints := append(points, points[0])
+	area := 0.0
+	//var i, j, k int // indices
+
+	if n < 3 {
+		return 0
+	} // a degenerate polygon
+
+	for i := 1; i < n; i++ {
+		area += closedPoints[i].X * (closedPoints[i+1].Y - closedPoints[i-1].Y)
+	}
+	area += closedPoints[n].X * (closedPoints[1].Y - closedPoints[n-1].Y) // wrap-around term
+	return area / 2.0
+}
+
 // UpdateCenterLocation updates the center and recalculates all angles
 func (v *Viewshed) UpdateCenterLocation(x float64, y float64) {
 	//y = -y

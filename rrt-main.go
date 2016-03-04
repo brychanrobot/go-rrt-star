@@ -244,6 +244,29 @@ func drawTree(node *rrtstar.Node, lineHue float64) {
 	drawPoint(node.Point, 2, colorful.Hsv(float64(int(lineHue+node.CumulativeCost/12.0)%360), 1, 0.6))
 }
 
+func drawNode(node *rrtstar.Node, lineHue float64) {
+	for _, child := range node.Children {
+		hue := int(lineHue+child.CumulativeCost/12.0) % 360
+		color := colorful.Hsv(float64(hue), 1, 0.6)
+		//drawLine(node.Point, child.Point, colorful.Hsv(float64(hue), 1, 0.6))
+		//drawTree(child, lineHue)
+		gl.Color3d(color.R, color.G, color.B)
+		gl.Vertex2d(float64(node.Point.X), float64(node.Point.Y))
+		gl.Vertex2d(float64(child.Point.X), float64(child.Point.Y))
+
+		drawNode(child, lineHue)
+	}
+}
+
+func drawTreeFaster(node *rrtstar.Node, lineHue float64) {
+	gl.LineWidth(1)
+	gl.Begin(gl.LINES)
+
+	drawNode(node, lineHue)
+
+	gl.End()
+}
+
 func drawPath(path []*image.Point, color colorful.Color, thickness float32) {
 	gl.Enable(gl.LINE_SMOOTH)
 	//gl.Enable(gl.BLEND)
@@ -340,7 +363,7 @@ func drawString(value string, point image.Point, color colorful.Color) {
 	font.Printf(float32(point.X), float32(point.Y), value)
 }
 
-func display(iteration int) {
+func display(iteration int, showTree bool) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.ClearColor(0, 0, 0, 0)
 
@@ -350,7 +373,9 @@ func display(iteration int) {
 	//drawViewshedSegments(rrtStar.Viewshed.Segments, colorful.Hsv(280, 1, 1), 3)
 	drawViewshed(rrtStar.Viewshed.ViewablePolygon, &rrtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
 
-	drawTree(rrtStar.Root, 250)
+	if showTree {
+		drawTreeFaster(rrtStar.Root, 250)
+	}
 
 	drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
 
@@ -373,6 +398,7 @@ func main() {
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
 	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
 	iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
+	showTree := flag.Bool("tree", false, "draws the tree")
 	record := flag.Bool("r", false, "records the session")
 	flag.Parse()
 
@@ -391,6 +417,8 @@ func main() {
 		width = vidMode.Width
 		height = vidMode.Height
 	}
+
+	log.Printf("w: %d, h: %d", width, height)
 
 	window, err := glfw.CreateWindow(width, height, "rrt*", monitor, nil)
 	if err != nil {
@@ -438,6 +466,7 @@ func main() {
 				if cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y {
 					rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
 					rrtStar.Viewshed.Sweep()
+					fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
 				}
 
 			} else if *isLooping {
@@ -447,7 +476,7 @@ func main() {
 			if redraw {
 				//log.Println("redrawing", i)
 
-				display(i)
+				display(i, *showTree)
 				window.SwapBuffers()
 				redraw = false
 
