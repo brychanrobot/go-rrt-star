@@ -14,12 +14,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/brychanrobot/gltext"
 	"github.com/brychanrobot/rrt-star/rrtstar"
 	"github.com/brychanrobot/rrt-star/viewshed"
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/gltext"
 	"github.com/harrydb/go/img/grayscale"
 	"github.com/lucasb-eyer/go-colorful"
 )
