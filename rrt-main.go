@@ -422,6 +422,8 @@ func main() {
 
 	log.Printf("w: %d, h: %d", width, height)
 
+	glfw.WindowHint(glfw.AutoIconify, glfw.False)
+
 	window, err := glfw.CreateWindow(width, height, "rrt*", monitor, nil)
 	if err != nil {
 		panic(err)
