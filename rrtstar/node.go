@@ -8,7 +8,8 @@ import (
 
 var (
 	tolerance = 0.01
-	unseenK   = 0.000001
+	unseenK   = 100.0
+	distanceK = 1.0
 )
 
 // Node Represents an RRT Node
@@ -25,7 +26,7 @@ func (n *Node) AddChild(point image.Point, cost float64, unseenArea float64) *No
 	newNode := Node{
 		parent:         n,
 		Point:          point,
-		CumulativeCost: n.CumulativeCost + cost + unseenArea*unseenK,
+		CumulativeCost: n.CumulativeCost + cost*distanceK + unseenArea*unseenK,
 		UnseenArea:     unseenArea}
 	n.Children = append(n.Children, &newNode)
 
@@ -56,7 +57,7 @@ func (n *Node) Rewire(newParent *Node, cost float64) {
 	n.parent.RemoveChild(n)
 	newParent.Children = append(newParent.Children, n)
 	n.parent = newParent
-	n.updateCumulativeCost(newParent.CumulativeCost + cost + n.UnseenArea*unseenK)
+	n.updateCumulativeCost(newParent.CumulativeCost + cost*distanceK + n.UnseenArea*unseenK)
 }
 
 // Bounds returns empty rect with top left at the node point for rtreego
