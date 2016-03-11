@@ -22,9 +22,6 @@ import (
 	"github.com/go-gl/gltext"
 	"github.com/harrydb/go/img/grayscale"
 	"github.com/lucasb-eyer/go-colorful"
-
-	"net/http"
-	_ "net/http/pprof"
 )
 
 var (
@@ -406,10 +403,6 @@ func main() {
 	showViewshed := flag.Bool("viewshed", false, "draws the viewshed at the mouse cursor location")
 	record := flag.Bool("r", false, "records the session")
 	flag.Parse()
-
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 
 	glfwErr := glfw.Init()
 	if glfwErr != nil {

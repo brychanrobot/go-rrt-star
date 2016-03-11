@@ -6,6 +6,7 @@ import (
 
 	"github.com/brychanrobot/rrt-star/viewshed"
 	"github.com/dhconnelly/rtreego"
+	"github.com/gonum/matrix/mat64"
 )
 
 // RrtStar holds all of the information for an rrt*
@@ -35,6 +36,20 @@ func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) *image.Po
 	}
 
 	return &point
+}
+
+func (r *RrtStar) renderCostMap() {
+	costMap := mat64.NewDense(r.height, r.width, nil)
+
+	for row := 0; row < r.height; row++ {
+		for col := 0; col < r.width; col++ {
+			if r.obstacleImage.GrayAt(col, row).Y > 200 {
+				point := image.Pt(col, row)
+				costMap.Set(row, col, r.getViewArea(&point))
+			}
+		}
+	}
+
 }
 
 // NewRrtStar creates a new rrt Star
