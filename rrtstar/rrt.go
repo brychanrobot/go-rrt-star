@@ -2,7 +2,9 @@ package rrtstar
 
 import (
 	"image"
+	"image/png"
 	"math"
+	"os"
 
 	"github.com/brychanrobot/rrt-star/viewshed"
 	"github.com/dhconnelly/rtreego"
@@ -26,6 +28,11 @@ type RrtStar struct {
 	mapArea       float64
 }
 
+const (
+	unseenK   = 200.0
+	distanceK = 1.0
+)
+
 func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) *image.Point {
 	var point image.Point
 	for true {
@@ -38,18 +45,32 @@ func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) *image.Po
 	return &point
 }
 
-func (r *RrtStar) renderCostMap() {
+func (r *RrtStar) renderUnseenCostMap(filename string) {
 	costMap := mat64.NewDense(r.height, r.width, nil)
+	costMapImg := image.NewGray(image.Rect(0, 0, r.width, r.height))
 
 	for row := 0; row < r.height; row++ {
 		for col := 0; col < r.width; col++ {
-			if r.obstacleImage.GrayAt(col, row).Y > 200 {
+			if r.obstacleImage.GrayAt(col, row).Y < 200 {
 				point := image.Pt(col, row)
 				costMap.Set(row, col, r.getViewArea(&point))
 			}
 		}
 	}
 
+	costMap.Scale(255/mat64.Max(costMap), costMap)
+
+	for row := 0; row < r.height; row++ {
+		for col := 0; col < r.width; col++ {
+			costMapImg.Pix[row*r.width+col] = uint8(costMap.At(row, col))
+			//costMapImg.Set(row, col, uint8(costMap.At()))
+		}
+	}
+
+	toimg, _ := os.Create(filename)
+	defer toimg.Close()
+
+	png.Encode(toimg, costMapImg)
 }
 
 // NewRrtStar creates a new rrt Star
@@ -77,8 +98,10 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, wid
 		mapArea:       float64(width * height)}
 
 	rrtStar.Viewshed.LoadMap(float64(width), float64(height), 0, obstacleRects, nil)
-	rrtStar.Viewshed.UpdateCenterLocation(float64(startPoint.X), float64(startPoint.Y))
-	rrtStar.Viewshed.Sweep()
+	//rrtStar.Viewshed.UpdateCenterLocation(float64(startPoint.X), float64(startPoint.Y))
+	//rrtStar.Viewshed.Sweep()
+
+	//rrtStar.renderCostMap()
 
 	return rrtStar
 }
@@ -125,12 +148,13 @@ func (r *RrtStar) refreshBestPath() {
 		rtreeEndPoint := rtreego.Point{float64(r.EndPoint.X), float64(r.EndPoint.Y)}
 		neighbors := r.rtree.SearchIntersect(rtreeEndPoint.ToRect(2 * r.maxSegment))
 
+		_, unseenArea := r.getCost(r.StartPoint, r.EndPoint)
 		//neighborCosts := []float64{}
 		bestCost := math.MaxFloat64
 		var bestNeighbor *Node
 		for _, neighborSpatial := range neighbors {
 			neighbor := neighborSpatial.(*Node)
-			cost := r.getCost(r.EndPoint, &neighbor.Point)
+			cost := r.getCostKnownUnseenArea(r.EndPoint, &neighbor.Point, unseenArea)
 			if cost < bestCost && !r.lineIntersectsObstacle(*r.EndPoint, neighbor.Point, 200) {
 				bestCost = cost
 				bestNeighbor = neighbor
@@ -138,8 +162,7 @@ func (r *RrtStar) refreshBestPath() {
 		}
 
 		if bestNeighbor != nil {
-			unseenArea := (r.mapArea - r.getViewArea(r.EndPoint)) / r.mapArea
-			r.endNode = bestNeighbor.AddChild(*r.EndPoint, bestCost, unseenArea)
+			r.endNode = bestNeighbor.AddChild(*r.EndPoint, bestCost)
 			r.rtree.Insert(r.endNode)
 			r.traceBestPath()
 		}
@@ -163,9 +186,16 @@ func (r *RrtStar) getViewArea(point *image.Point) float64 {
 	return viewshed.Area2DPolygon(r.Viewshed.ViewablePolygon)
 }
 
-func (r *RrtStar) getCost(neighbor *image.Point, point *image.Point) float64 {
+func (r *RrtStar) getCost(neighbor *image.Point, point *image.Point) (float64, float64) {
+
+	unseenArea := (r.mapArea - r.getViewArea(point)) / r.mapArea
+	cost := r.getCostKnownUnseenArea(neighbor, point, unseenArea)
+	return cost, unseenArea
+}
+
+func (r *RrtStar) getCostKnownUnseenArea(neighbor *image.Point, point *image.Point, unseenArea float64) float64 {
 	dist := euclideanDistance(neighbor, point)
-	return dist
+	return dist*distanceK + unseenArea*unseenK
 }
 
 // SampleRrtStar performs one iteration of rrt*
@@ -175,11 +205,12 @@ func (r *RrtStar) SampleRrtStar() {
 	nnSpatial := r.rtree.NearestNeighbor(rtreego.Point{float64(point.X), float64(point.Y)})
 	nn := nnSpatial.(*Node)
 
-	cost := r.getCost(&nn.Point, &point)
+	//cost, unseenArea := r.getCost(&nn.Point, &point)
+	dist := euclideanDistance(&nn.Point, &point)
 
 	//log.Println(dist)
 
-	if cost > r.maxSegment {
+	if dist > r.maxSegment {
 		angle := angleBetweenPoints(nn.Point, point)
 		x := int(r.maxSegment*math.Cos(angle)) + nn.Point.X
 		y := int(r.maxSegment*math.Sin(angle)) + nn.Point.Y
@@ -188,24 +219,27 @@ func (r *RrtStar) SampleRrtStar() {
 
 	if r.obstacleImage.GrayAt(point.X, point.Y).Y < 50 {
 
+		unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
+
 		rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
 		neighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))
 
 		neighborCosts := []float64{}
 		bestCost := math.MaxFloat64
 		var bestNeighbor *Node
-		for i, neighborSpatial := range neighbors {
+		for _, neighborSpatial := range neighbors {
 			neighbor := neighborSpatial.(*Node)
-			neighborCosts = append(neighborCosts, r.getCost(&point, &neighbor.Point))
-			if neighborCosts[i] < bestCost {
-				bestCost = neighborCosts[i]
+			cost := r.getCostKnownUnseenArea(&neighbor.Point, &point, unseenArea)
+			neighborCosts = append(neighborCosts, cost)
+			if cost < bestCost {
+				bestCost = cost
 				bestNeighbor = neighbor
 			}
 		}
 
 		if !r.lineIntersectsObstacle(point, bestNeighbor.Point, 200) {
-			unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
-			newNode := bestNeighbor.AddChild(point, bestCost, unseenArea)
+			//unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
+			newNode := bestNeighbor.AddChild(point, bestCost)
 			r.rtree.Insert(newNode)
 
 			for i, neighborInterface := range neighbors {

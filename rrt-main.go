@@ -385,6 +385,8 @@ func display(iteration int, showTree bool, showViewshed bool) {
 
 	drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), colorful.Hsv(180, 1, 1))
 
+	drawPoint(image.Pt(int(cursorX), int(cursorY)), 10, colorful.Hsv(330, 1, 1))
+
 	gl.Flush() /* Single buffered, so needs a flush. */
 }
 
@@ -434,6 +436,7 @@ func main() {
 	window.SetKeyCallback(onKey)
 	window.SetCharCallback(onChar)
 	window.SetCursorPosCallback(onCursor)
+	window.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
 	glfw.SwapInterval(1)
 
 	glErr := gl.Init()
