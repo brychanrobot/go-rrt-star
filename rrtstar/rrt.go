@@ -45,7 +45,7 @@ func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) *image.Po
 	return &point
 }
 
-func (r *RrtStar) renderUnseenCostMap(filename string) {
+func (r *RrtStar) RenderUnseenCostMap(filename string) {
 	costMap := mat64.NewDense(r.height, r.width, nil)
 	costMapImg := image.NewGray(image.Rect(0, 0, r.width, r.height))
 

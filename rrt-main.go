@@ -33,7 +33,8 @@ var (
 	obstaclesTexture uint32
 	obstacleRects    []*image.Rectangle
 	rrtStar          *rrtstar.RrtStar
-	frames           []*image.RGBA
+	frames           []*image.NRGBA
+	frameCount       int
 
 	cursorX float64
 	cursorY float64
@@ -289,7 +290,7 @@ func drawViewshed(path []*viewshed.Point, center *viewshed.Point, color colorful
 	//gl.ShadeModel(gl.SMOOTH_QUADRATIC_CURVE_TO_NV)
 
 	gl.Begin(gl.TRIANGLE_FAN)
-	gl.Color4d(color.R, color.G, color.B, 0.2)
+	gl.Color4d(color.R, color.G, color.B, 0.5)
 	gl.Vertex2d(center.X, center.Y)
 	for _, point := range path {
 		gl.Vertex2d(point.X, point.Y)
@@ -363,7 +364,7 @@ func drawString(value string, point image.Point, color colorful.Color) {
 	font.Printf(float32(point.X), float32(point.Y), value)
 }
 
-func display(iteration int, showTree bool, showViewshed bool) {
+func display(iteration int, showTree, showViewshed, showPath, showIterationCount bool) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.ClearColor(0, 0, 0, 0)
 
@@ -378,14 +379,20 @@ func display(iteration int, showTree bool, showViewshed bool) {
 		drawTreeFaster(rrtStar.Root, 250)
 	}
 
-	drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
+	if showPath {
+		drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
 
-	drawPoint(*rrtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
-	drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
+		drawPoint(*rrtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
+		drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
+	}
 
-	drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), colorful.Hsv(180, 1, 1))
+	if showIterationCount {
+		drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), colorful.Hsv(180, 1, 1))
+	}
 
-	drawPoint(image.Pt(int(cursorX), int(cursorY)), 10, colorful.Hsv(330, 1, 1))
+	if showViewshed {
+		drawPoint(image.Pt(int(cursorX), int(cursorY)), 10, colorful.Hsv(330, 1, 1))
+	}
 
 	gl.Flush() /* Single buffered, so needs a flush. */
 }
@@ -401,9 +408,12 @@ func main() {
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
 	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
 	iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
+	record := flag.Bool("r", false, "records the session")
+	renderCostmap := flag.Bool("cm", false, "renders a costmap before executing")
+	showPath := flag.Bool("path", true, "shows the path and endpoints")
+	showIterationCount := flag.Bool("count", true, "shows the iteration count")
 	showTree := flag.Bool("tree", false, "draws the tree")
 	showViewshed := flag.Bool("viewshed", false, "draws the viewshed at the mouse cursor location")
-	record := flag.Bool("r", false, "records the session")
 	flag.Parse()
 
 	glfwErr := glfw.Init()
@@ -459,6 +469,10 @@ func main() {
 		obstacleRects, obstacleImage = rrtstar.GenerateObstacles(width, height, *numObstacles)
 		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, width, height)
 
+		if *renderCostmap {
+			rrtStar.RenderUnseenCostMap("unseen.png")
+		}
+
 		obstaclesTexture = getTextureGray(obstacleImage)
 		defer gl.DeleteTextures(1, &obstaclesTexture)
 		reshape(window, width, height)
@@ -469,26 +483,24 @@ func main() {
 				if i%*iterationsPerFrame == 0 {
 					invalidate()
 				}
-
-				if *showViewshed && (cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y) {
-					rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
-					rrtStar.Viewshed.Sweep()
-					fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
-				}
-
 			} else if *isLooping {
 				break
 			}
 
 			if redraw {
 				//log.Println("redrawing", i)
+				if *showViewshed && (cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y) {
+					rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
+					rrtStar.Viewshed.Sweep()
+					fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
+				}
 
-				display(i, *showTree, *showViewshed)
+				display(i, *showTree, *showViewshed, *showPath, *showIterationCount)
 				window.SwapBuffers()
 				redraw = false
 
 				if *record {
-					saveFrame(width, height, false)
+					saveFrame(width, height, true)
 				}
 			}
 			glfw.PollEvents()
@@ -499,7 +511,7 @@ func main() {
 
 func saveFrame(width int, height int, toFile bool) {
 
-	screenshot := image.NewRGBA(image.Rect(0, 0, width, height))
+	screenshot := image.NewNRGBA(image.Rect(0, 0, width, height))
 
 	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(screenshot.Pix))
 	//gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&screenshot.Pix[0]))
@@ -508,16 +520,20 @@ func saveFrame(width int, height int, toFile bool) {
 		panic("unable to read pixels")
 	}
 
+	flipped := imaging.FlipV(screenshot)
+
 	if toFile {
-		filename := time.Now().Format("video/2006Jan02_15-04-05.999.png")
+		//filename := time.Now().Format("video/2006Jan02_15-04-05.999.png")
+		filename := fmt.Sprintf("video/%06d.png", frameCount)
+		frameCount++
 
 		os.Mkdir("video", os.ModeDir)
 		outFile, _ := os.Create(filename)
 		defer outFile.Close()
 
-		png.Encode(outFile, screenshot)
+		png.Encode(outFile, flipped)
 	} else {
-		frames = append(frames, screenshot)
+		frames = append(frames, flipped)
 	}
 }
 
