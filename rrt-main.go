@@ -38,6 +38,9 @@ var (
 
 	cursorX float64
 	cursorY float64
+
+	moveX float64
+	moveY float64
 )
 
 func reshape(window *glfw.Window, w, h int) {
@@ -481,6 +484,7 @@ func main() {
 			if i < *iterations {
 				rrtStar.SampleRrtStar()
 				if i%*iterationsPerFrame == 0 {
+					rrtStar.MoveStartPoint(moveX, moveY)
 					invalidate()
 				}
 			} else if *isLooping {
@@ -492,7 +496,7 @@ func main() {
 				if *showViewshed && (cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y) {
 					rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
 					rrtStar.Viewshed.Sweep()
-					fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
+					//fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
 				}
 
 				display(i, *showTree, *showViewshed, *showPath, *showIterationCount)
@@ -542,10 +546,38 @@ func onChar(w *glfw.Window, char rune) {
 }
 
 func onKey(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	//log.Println(action)
 	switch {
-	case key == glfw.KeyEscape && action == glfw.Press,
-		key == glfw.KeyQ && action == glfw.Press:
+	case key == glfw.KeyEscape, key == glfw.KeyQ:
 		w.SetShouldClose(true)
+	case key == glfw.KeyUp:
+		//log.Println("up")
+		if action != glfw.Release {
+			moveY = -5
+		} else {
+			moveY = 0
+		}
+	case key == glfw.KeyDown:
+		//log.Println("down")
+		if action != glfw.Release {
+			moveY = 5
+		} else {
+			moveY = 0
+		}
+	case key == glfw.KeyLeft:
+		//log.Println("left")
+		if action != glfw.Release {
+			moveX = -5
+		} else {
+			moveX = 0
+		}
+	case key == glfw.KeyRight:
+		//log.Println("right")
+		if action != glfw.Release {
+			moveX = 5
+		} else {
+			moveX = 0
+		}
 	}
 }
 

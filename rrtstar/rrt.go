@@ -29,7 +29,7 @@ type RrtStar struct {
 }
 
 const (
-	unseenK   = 200.0
+	unseenK   = 100.0
 	distanceK = 1.0
 )
 
@@ -106,6 +106,58 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, wid
 	return rrtStar
 }
 
+func (r *RrtStar) getBestNeighbor(point *image.Point, unseenArea float64) (*Node, float64, []*Node, []float64) {
+	rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
+	spatialNeighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))
+
+	neighborCosts := []float64{}
+	neighbors := []*Node{}
+	bestCost := math.MaxFloat64
+	var bestNeighbor *Node
+	for _, spatialNeighbor := range spatialNeighbors {
+		neighbor := spatialNeighbor.(*Node)
+		neighbors = append(neighbors, neighbor)
+		cost := r.getCostKnownUnseenArea(&neighbor.Point, point, unseenArea)
+		neighborCosts = append(neighborCosts, cost)
+		if cost < bestCost {
+			bestCost = cost
+			bestNeighbor = neighbor
+		}
+	}
+
+	return bestNeighbor, bestCost, neighbors, neighborCosts
+}
+
+func (r *RrtStar) MoveStartPoint(dx, dy float64) {
+	if dx != 0 || dy != 0 {
+
+		r.rtree.Delete(r.Root)
+		r.StartPoint.X += int(dx)
+		r.StartPoint.Y += int(dy)
+
+		newRoot := &Node{Point: *r.StartPoint}
+		r.rtree.Insert(newRoot)
+
+		for _, child := range r.Root.Children {
+			bestNeighbor, bestCost, _, _ := r.getBestNeighbor(&child.Point, child.UnseenArea)
+
+			child.Rewire(bestNeighbor, bestCost)
+		}
+
+		_, _, neighbors, neighborCosts := r.getBestNeighbor(&newRoot.Point, newRoot.UnseenArea)
+
+		for i, neighbor := range neighbors {
+			if !r.lineIntersectsObstacle(newRoot.Point, neighbor.Point, 200) {
+				if neighbor != newRoot && neighborCosts[i]+newRoot.CumulativeCost < neighbor.CumulativeCost {
+					neighbor.Rewire(newRoot, neighborCosts[i])
+				}
+			}
+		}
+
+		r.Root = newRoot
+	}
+}
+
 func (r *RrtStar) lineIntersectsObstacle(p1 image.Point, p2 image.Point, minObstacleColor uint8) bool {
 	dx := float64(float64(p2.X) - float64(p1.X))
 	dy := float64(float64(p2.Y) - float64(p1.Y))
@@ -162,7 +214,7 @@ func (r *RrtStar) refreshBestPath() {
 		}
 
 		if bestNeighbor != nil {
-			r.endNode = bestNeighbor.AddChild(*r.EndPoint, bestCost)
+			r.endNode = bestNeighbor.AddChild(*r.EndPoint, bestCost, unseenArea)
 			r.rtree.Insert(r.endNode)
 			r.traceBestPath()
 		}
@@ -221,29 +273,32 @@ func (r *RrtStar) SampleRrtStar() {
 
 		unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
 
-		rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
-		neighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))
+		/*
+			rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
+			neighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))
 
-		neighborCosts := []float64{}
-		bestCost := math.MaxFloat64
-		var bestNeighbor *Node
-		for _, neighborSpatial := range neighbors {
-			neighbor := neighborSpatial.(*Node)
-			cost := r.getCostKnownUnseenArea(&neighbor.Point, &point, unseenArea)
-			neighborCosts = append(neighborCosts, cost)
-			if cost < bestCost {
-				bestCost = cost
-				bestNeighbor = neighbor
+			neighborCosts := []float64{}
+			bestCost := math.MaxFloat64
+			var bestNeighbor *Node
+			for _, neighborSpatial := range neighbors {
+				neighbor := neighborSpatial.(*Node)
+				cost := r.getCostKnownUnseenArea(&neighbor.Point, &point, unseenArea)
+				neighborCosts = append(neighborCosts, cost)
+				if cost < bestCost {
+					bestCost = cost
+					bestNeighbor = neighbor
+				}
 			}
-		}
+		*/
+		bestNeighbor, bestCost, neighbors, neighborCosts := r.getBestNeighbor(&point, unseenArea)
 
 		if !r.lineIntersectsObstacle(point, bestNeighbor.Point, 200) {
 			//unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
-			newNode := bestNeighbor.AddChild(point, bestCost)
+			newNode := bestNeighbor.AddChild(point, bestCost, unseenArea)
 			r.rtree.Insert(newNode)
 
-			for i, neighborInterface := range neighbors {
-				neighbor := neighborInterface.(*Node)
+			for i, neighbor := range neighbors {
+				//neighbor := neighborInterface.(*Node)
 				if neighbor != bestNeighbor && !r.lineIntersectsObstacle(newNode.Point, neighbor.Point, 200) {
 					if neighborCosts[i]+newNode.CumulativeCost < neighbor.CumulativeCost {
 						neighbor.Rewire(newNode, neighborCosts[i])

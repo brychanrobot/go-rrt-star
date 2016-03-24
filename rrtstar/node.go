@@ -16,15 +16,16 @@ type Node struct {
 	Point          image.Point
 	Children       []*Node
 	CumulativeCost float64
-	//UnseenArea     float64
+	UnseenArea     float64
 }
 
 // AddChild adds a child and updates cost
-func (n *Node) AddChild(point image.Point, cost float64) *Node {
+func (n *Node) AddChild(point image.Point, cost, unseenArea float64) *Node {
 	newNode := Node{
 		parent:         n,
 		Point:          point,
-		CumulativeCost: n.CumulativeCost + cost}
+		CumulativeCost: n.CumulativeCost + cost,
+		UnseenArea:     unseenArea}
 	n.Children = append(n.Children, &newNode)
 
 	return &newNode
