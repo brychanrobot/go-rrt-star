@@ -109,19 +109,20 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, wid
 func (r *RrtStar) getBestNeighbor(point *image.Point, unseenArea float64) (*Node, float64, []*Node, []float64) {
 	rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
 	spatialNeighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))
-
 	neighborCosts := []float64{}
 	neighbors := []*Node{}
 	bestCost := math.MaxFloat64
 	var bestNeighbor *Node
 	for _, spatialNeighbor := range spatialNeighbors {
 		neighbor := spatialNeighbor.(*Node)
-		neighbors = append(neighbors, neighbor)
-		cost := r.getCostKnownUnseenArea(&neighbor.Point, point, unseenArea)
-		neighborCosts = append(neighborCosts, cost)
-		if cost < bestCost {
-			bestCost = cost
-			bestNeighbor = neighbor
+		if neighbor.Point != *point && !r.lineIntersectsObstacle(*point, neighbor.Point, 200) {
+			neighbors = append(neighbors, neighbor)
+			cost := r.getCostKnownUnseenArea(&neighbor.Point, point, unseenArea)
+			neighborCosts = append(neighborCosts, cost)
+			if cost < bestCost {
+				bestCost = cost
+				bestNeighbor = neighbor
+			}
 		}
 	}
 
@@ -135,26 +136,36 @@ func (r *RrtStar) MoveStartPoint(dx, dy float64) {
 		r.StartPoint.X += int(dx)
 		r.StartPoint.Y += int(dy)
 
-		newRoot := &Node{Point: *r.StartPoint}
-		r.rtree.Insert(newRoot)
+		//newRoot := &Node{Point: *r.StartPoint}
+		r.Root.Point = *r.StartPoint
+		//r.rtree.Insert(newRoot)
+
+		for _, child := range r.Root.Children {
+			cost := r.getCostKnownUnseenArea(&r.Root.Point, &child.Point, child.UnseenArea)
+			child.updateCumulativeCost(cost)
+		}
+
+		_, _, neighbors, neighborCosts := r.getBestNeighbor(&r.Root.Point, r.Root.UnseenArea)
+		for i, neighbor := range neighbors {
+			//if !r.lineIntersectsObstacle(r.Root.Point, neighbor.Point, 200) {
+			if neighborCosts[i]+r.Root.CumulativeCost < neighbor.CumulativeCost {
+				neighbor.Rewire(r.Root, neighborCosts[i])
+			}
+			//}
+		}
+
+		r.rtree.Insert(r.Root)
 
 		for _, child := range r.Root.Children {
 			bestNeighbor, bestCost, _, _ := r.getBestNeighbor(&child.Point, child.UnseenArea)
 
-			child.Rewire(bestNeighbor, bestCost)
-		}
+			if bestNeighbor != nil && bestNeighbor.parent != child && child.parent != bestNeighbor {
+				//fmt.Printf("n: %s, c: %s\n", bestNeighbor.Point, child.Point)
 
-		_, _, neighbors, neighborCosts := r.getBestNeighbor(&newRoot.Point, newRoot.UnseenArea)
-
-		for i, neighbor := range neighbors {
-			if !r.lineIntersectsObstacle(newRoot.Point, neighbor.Point, 200) {
-				if neighbor != newRoot && neighborCosts[i]+newRoot.CumulativeCost < neighbor.CumulativeCost {
-					neighbor.Rewire(newRoot, neighborCosts[i])
-				}
+				child.Rewire(bestNeighbor, bestCost)
 			}
 		}
-
-		r.Root = newRoot
+		//r.Root = newRoot
 	}
 }
 
@@ -292,7 +303,7 @@ func (r *RrtStar) SampleRrtStar() {
 		*/
 		bestNeighbor, bestCost, neighbors, neighborCosts := r.getBestNeighbor(&point, unseenArea)
 
-		if !r.lineIntersectsObstacle(point, bestNeighbor.Point, 200) {
+		if bestNeighbor != nil { //!r.lineIntersectsObstacle(point, bestNeighbor.Point, 200) {
 			//unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
 			newNode := bestNeighbor.AddChild(point, bestCost, unseenArea)
 			r.rtree.Insert(newNode)
