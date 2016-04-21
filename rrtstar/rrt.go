@@ -3,6 +3,7 @@ package rrtstar
 import (
 	"image"
 	"image/png"
+	"log"
 	"math"
 	"os"
 
@@ -13,19 +14,20 @@ import (
 
 // RrtStar holds all of the information for an rrt*
 type RrtStar struct {
-	obstacleImage *image.Gray
-	obstacleRects []*image.Rectangle
-	rtree         *rtreego.Rtree
-	Root          *Node
-	maxSegment    float64
-	width         int
-	height        int
-	StartPoint    *image.Point
-	EndPoint      *image.Point
-	endNode       *Node
-	BestPath      []*image.Point
-	Viewshed      viewshed.Viewshed
-	mapArea       float64
+	obstacleImage      *image.Gray
+	obstacleRects      []*image.Rectangle
+	rtree              *rtreego.Rtree
+	Root               *Node
+	maxSegment         float64
+	rewireNeighborhood float64
+	width              int
+	height             int
+	StartPoint         *image.Point
+	EndPoint           *image.Point
+	endNode            *Node
+	BestPath           []*image.Point
+	Viewshed           viewshed.Viewshed
+	mapArea            float64
 }
 
 const (
@@ -74,7 +76,7 @@ func (r *RrtStar) RenderUnseenCostMap(filename string) {
 }
 
 // NewRrtStar creates a new rrt Star
-func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, width int, height int) *RrtStar {
+func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, maxSegment float64, width int, height int) *RrtStar {
 	startPoint := randomOpenAreaPoint(obstacleImage, width, height)
 	var endPoint *image.Point
 	//make sure the enpoint is at least half the screen away from the start to guarantee some difficulty
@@ -82,33 +84,36 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, wid
 		endPoint = randomOpenAreaPoint(obstacleImage, width, height)
 	}
 	rrtRoot := &Node{parent: nil, Point: *startPoint, CumulativeCost: 0}
+	NUM_NODES++
 	rtree := rtreego.NewTree(2, 25, 50)
 	rtree.Insert(rrtRoot)
 
 	rrtStar := &RrtStar{
-		obstacleImage: obstacleImage,
-		obstacleRects: obstacleRects,
-		rtree:         rtree,
-		Root:          rrtRoot,
-		maxSegment:    20,
-		width:         width,
-		height:        height,
-		StartPoint:    startPoint,
-		EndPoint:      endPoint,
-		mapArea:       float64(width * height)}
+		obstacleImage:      obstacleImage,
+		obstacleRects:      obstacleRects,
+		rtree:              rtree,
+		Root:               rrtRoot,
+		maxSegment:         maxSegment,
+		rewireNeighborhood: maxSegment * 6,
+		width:              width,
+		height:             height,
+		StartPoint:         startPoint,
+		EndPoint:           endPoint,
+		mapArea:            float64(width * height)}
 
 	rrtStar.Viewshed.LoadMap(float64(width), float64(height), 0, obstacleRects, nil)
 	//rrtStar.Viewshed.UpdateCenterLocation(float64(startPoint.X), float64(startPoint.Y))
 	//rrtStar.Viewshed.Sweep()
 
 	//rrtStar.renderCostMap()
+	rrtStar.Root.UnseenArea = rrtStar.getUnseenArea(startPoint)
 
 	return rrtStar
 }
 
-func (r *RrtStar) getBestNeighbor(point *image.Point, unseenArea float64) (*Node, float64, []*Node, []float64) {
+func (r *RrtStar) getBestNeighbor(point *image.Point, neighborhoodSize, unseenArea float64) (*Node, float64, []*Node, []float64) {
 	rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
-	spatialNeighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))
+	spatialNeighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(neighborhoodSize))
 	neighborCosts := []float64{}
 	neighbors := []*Node{}
 	bestCost := math.MaxFloat64
@@ -131,41 +136,59 @@ func (r *RrtStar) getBestNeighbor(point *image.Point, unseenArea float64) (*Node
 
 func (r *RrtStar) MoveStartPoint(dx, dy float64) {
 	if dx != 0 || dy != 0 {
-
-		r.rtree.Delete(r.Root)
 		r.StartPoint.X += int(dx)
 		r.StartPoint.Y += int(dy)
+		//log.Println(r.StartPoint)
+		newRoot := &Node{parent: nil, Point: *r.StartPoint, CumulativeCost: 0}
+		NUM_NODES++
+		newRoot.UnseenArea = r.getUnseenArea(&newRoot.Point)
+		r.rtree.Insert(newRoot)
 
-		//newRoot := &Node{Point: *r.StartPoint}
-		r.Root.Point = *r.StartPoint
-		//r.rtree.Insert(newRoot)
+		r.Root.Rewire(newRoot, r.getCostKnownUnseenArea(&newRoot.Point, &r.Root.Point, r.Root.UnseenArea))
+		r.Root = newRoot
 
-		for _, child := range r.Root.Children {
-			cost := r.getCostKnownUnseenArea(&r.Root.Point, &child.Point, child.UnseenArea)
-			child.updateCumulativeCost(cost)
-		}
-
-		_, _, neighbors, neighborCosts := r.getBestNeighbor(&r.Root.Point, r.Root.UnseenArea)
+		_, _, neighbors, neighborCosts := r.getBestNeighbor(&r.Root.Point, r.rewireNeighborhood, r.Root.UnseenArea)
 		for i, neighbor := range neighbors {
-			//if !r.lineIntersectsObstacle(r.Root.Point, neighbor.Point, 200) {
-			if neighborCosts[i]+r.Root.CumulativeCost < neighbor.CumulativeCost {
-				neighbor.Rewire(r.Root, neighborCosts[i])
-			}
-			//}
-		}
-
-		r.rtree.Insert(r.Root)
-
-		for _, child := range r.Root.Children {
-			bestNeighbor, bestCost, _, _ := r.getBestNeighbor(&child.Point, child.UnseenArea)
-
-			if bestNeighbor != nil && bestNeighbor.parent != child && child.parent != bestNeighbor {
-				//fmt.Printf("n: %s, c: %s\n", bestNeighbor.Point, child.Point)
-
-				child.Rewire(bestNeighbor, bestCost)
+			if !r.lineIntersectsObstacle(r.Root.Point, neighbor.Point, 200) {
+				if neighborCosts[i]+r.Root.CumulativeCost < neighbor.CumulativeCost {
+					neighbor.Rewire(r.Root, neighborCosts[i])
+				}
 			}
 		}
-		//r.Root = newRoot
+	}
+}
+
+func (r *RrtStar) Prune(minorAxisSquares int) {
+	var squareSize int
+	if r.height < r.width {
+		squareSize = int(r.height / minorAxisSquares)
+	} else {
+		squareSize = int(r.width / minorAxisSquares)
+	}
+
+	log.Printf("sq: %d", squareSize)
+
+	for cy := int(squareSize / 2); cy < r.height; cy += squareSize {
+		for cx := int(squareSize / 2); cx < r.width; cx += squareSize {
+			cPoint := image.Pt(cx, cy)
+			bestNeighbor, _, neighbors, _ := r.getBestNeighbor(&cPoint, float64(squareSize), 0)
+			for _, neighbor := range neighbors {
+				if neighbor != bestNeighbor && !r.lineIntersectsObstacle(bestNeighbor.Point, neighbor.Point, 200) {
+					cost := r.getCostKnownUnseenArea(&bestNeighbor.Point, &neighbor.Point, neighbor.UnseenArea)
+					if cost+bestNeighbor.CumulativeCost < neighbor.CumulativeCost {
+						neighbor.Rewire(bestNeighbor, cost)
+					}
+				}
+			}
+
+			for _, neighbor := range neighbors {
+				if len(neighbor.Children) == 0 {
+					neighbor.parent.RemoveChild(neighbor)
+					r.rtree.Delete(neighbor)
+					NUM_NODES--
+				}
+			}
+		}
 	}
 }
 
@@ -249,9 +272,13 @@ func (r *RrtStar) getViewArea(point *image.Point) float64 {
 	return viewshed.Area2DPolygon(r.Viewshed.ViewablePolygon)
 }
 
+func (r *RrtStar) getUnseenArea(point *image.Point) float64 {
+	return (r.mapArea - r.getViewArea(point)) / r.mapArea
+}
+
 func (r *RrtStar) getCost(neighbor *image.Point, point *image.Point) (float64, float64) {
 
-	unseenArea := (r.mapArea - r.getViewArea(point)) / r.mapArea
+	unseenArea := r.getUnseenArea(point)
 	cost := r.getCostKnownUnseenArea(neighbor, point, unseenArea)
 	return cost, unseenArea
 }
@@ -261,8 +288,7 @@ func (r *RrtStar) getCostKnownUnseenArea(neighbor *image.Point, point *image.Poi
 	return dist*distanceK + unseenArea*unseenK
 }
 
-// SampleRrtStar performs one iteration of rrt*
-func (r *RrtStar) SampleRrtStar() {
+func (r *RrtStar) sampleRrtStarWithNewNode() {
 	point := randomPoint(r.width, r.height)
 
 	nnSpatial := r.rtree.NearestNeighbor(rtreego.Point{float64(point.X), float64(point.Y)})
@@ -283,25 +309,7 @@ func (r *RrtStar) SampleRrtStar() {
 	if r.obstacleImage.GrayAt(point.X, point.Y).Y < 50 {
 
 		unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
-
-		/*
-			rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
-			neighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(6 * r.maxSegment))
-
-			neighborCosts := []float64{}
-			bestCost := math.MaxFloat64
-			var bestNeighbor *Node
-			for _, neighborSpatial := range neighbors {
-				neighbor := neighborSpatial.(*Node)
-				cost := r.getCostKnownUnseenArea(&neighbor.Point, &point, unseenArea)
-				neighborCosts = append(neighborCosts, cost)
-				if cost < bestCost {
-					bestCost = cost
-					bestNeighbor = neighbor
-				}
-			}
-		*/
-		bestNeighbor, bestCost, neighbors, neighborCosts := r.getBestNeighbor(&point, unseenArea)
+		bestNeighbor, bestCost, neighbors, neighborCosts := r.getBestNeighbor(&point, r.rewireNeighborhood, unseenArea)
 
 		if bestNeighbor != nil { //!r.lineIntersectsObstacle(point, bestNeighbor.Point, 200) {
 			//unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
@@ -318,9 +326,34 @@ func (r *RrtStar) SampleRrtStar() {
 			}
 		}
 
-		r.refreshBestPath()
+		//r.refreshBestPath()
 
 	}
+}
+
+func (r *RrtStar) sampleRrtStarWithoutNewNode() {
+	point := randomPoint(r.width, r.height)
+	bestNeighbor, _, neighbors, _ := r.getBestNeighbor(&point, float64(r.rewireNeighborhood), 0)
+	for _, neighbor := range neighbors {
+		if neighbor != bestNeighbor && !r.lineIntersectsObstacle(bestNeighbor.Point, neighbor.Point, 200) {
+			cost := r.getCostKnownUnseenArea(&bestNeighbor.Point, &neighbor.Point, neighbor.UnseenArea)
+			if cost+bestNeighbor.CumulativeCost < neighbor.CumulativeCost {
+				neighbor.Rewire(bestNeighbor, cost)
+			}
+		}
+	}
+}
+
+// SampleRrtStar performs one iteration of rrt*
+func (r *RrtStar) SampleRrtStar() {
+	nodeRatio := int(0.01 * float64(r.width*r.height))
+	//log.Println(nodeRatio)
+	if NUM_NODES < nodeRatio {
+		r.sampleRrtStarWithNewNode()
+	} else {
+		r.sampleRrtStarWithoutNewNode()
+	}
+	r.refreshBestPath()
 }
 
 // SampleRrt does rrt but ignores obstacles

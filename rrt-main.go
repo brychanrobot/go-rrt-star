@@ -470,7 +470,7 @@ func main() {
 		//obstacles := readImageGray("dragon.png")
 		var obstacleImage *image.Gray
 		obstacleRects, obstacleImage = rrtstar.GenerateObstacles(width, height, *numObstacles)
-		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, width, height)
+		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 20, width, height)
 
 		if *renderCostmap {
 			rrtStar.RenderUnseenCostMap("unseen.png")
@@ -499,7 +499,7 @@ func main() {
 					//fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
 				}
 
-				display(i, *showTree, *showViewshed, *showPath, *showIterationCount)
+				display(rrtstar.NUM_NODES, *showTree, *showViewshed, *showPath, *showIterationCount)
 				window.SwapBuffers()
 				redraw = false
 
@@ -542,7 +542,10 @@ func saveFrame(width int, height int, toFile bool) {
 }
 
 func onChar(w *glfw.Window, char rune) {
-	log.Println(char)
+	//log.Println(char)
+	if char == 'p' {
+		rrtStar.Prune(30)
+	}
 }
 
 func onKey(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
@@ -578,6 +581,8 @@ func onKey(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods 
 		} else {
 			moveX = 0
 		}
+	case key == glfw.KeyP:
+		//rrtStar.Prune(100)
 	}
 }
 
