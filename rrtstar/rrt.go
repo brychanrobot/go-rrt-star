@@ -35,18 +35,6 @@ const (
 	distanceK = 1.0
 )
 
-func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) *image.Point {
-	var point image.Point
-	for true {
-		point = randomPoint(width, height)
-		if !pointIntersectsObstacle(point, obstacles, 200) {
-			break
-		}
-	}
-
-	return &point
-}
-
 func (r *RrtStar) RenderUnseenCostMap(filename string) {
 	costMap := mat64.NewDense(r.height, r.width, nil)
 	costMapImg := image.NewGray(image.Rect(0, 0, r.width, r.height))
@@ -79,7 +67,7 @@ func (r *RrtStar) RenderUnseenCostMap(filename string) {
 func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, maxSegment float64, width int, height int) *RrtStar {
 	startPoint := randomOpenAreaPoint(obstacleImage, width, height)
 	var endPoint *image.Point
-	//make sure the enpoint is at least half the screen away from the start to guarantee some difficulty
+	//make sure the endpoint is at least half the screen away from the start to guarantee some difficulty
 	for endPoint == nil || euclideanDistance(startPoint, endPoint) < float64(width)/2.0 {
 		endPoint = randomOpenAreaPoint(obstacleImage, width, height)
 	}
@@ -223,10 +211,6 @@ func (r *RrtStar) lineIntersectsObstacle(p1 image.Point, p2 image.Point, minObst
 	}
 
 	return false
-}
-
-func pointIntersectsObstacle(point image.Point, obstacles *image.Gray, minObstacleColor uint8) bool {
-	return obstacles.GrayAt(point.X, point.Y).Y > minObstacleColor
 }
 
 func (r *RrtStar) refreshBestPath() {

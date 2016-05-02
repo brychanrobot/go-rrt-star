@@ -41,6 +41,8 @@ var (
 
 	moveX float64
 	moveY float64
+
+	targets []*rrtstar.Target
 )
 
 func reshape(window *glfw.Window, w, h int) {
@@ -356,6 +358,13 @@ func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
 	gl.End()
 }
 
+func drawTargets(targets []*rrtstar.Target, color colorful.Color) {
+	for _, target := range targets {
+		drawPoint(target.Point, 30, color)
+		drawString(fmt.Sprintf("%d", target.Importance), target.Point, colorful.Hsv(310, 1, 1))
+	}
+}
+
 func drawString(value string, point image.Point, color colorful.Color) {
 	sw, sh := font.Metrics(value)
 	gl.Color4d(0, 0, 0, 0)
@@ -389,6 +398,8 @@ func display(iteration int, showTree, showViewshed, showPath, showIterationCount
 		drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
 	}
 
+	drawTargets(targets, colorful.Hsv(110, 1, 1))
+
 	if showIterationCount {
 		drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), colorful.Hsv(180, 1, 1))
 	}
@@ -417,6 +428,7 @@ func main() {
 	showIterationCount := flag.Bool("count", true, "shows the iteration count")
 	showTree := flag.Bool("tree", false, "draws the tree")
 	showViewshed := flag.Bool("viewshed", false, "draws the viewshed at the mouse cursor location")
+	numTargets := flag.Int("targets", 2, "the number of targets to simulate")
 	flag.Parse()
 
 	glfwErr := glfw.Init()
@@ -476,6 +488,11 @@ func main() {
 			rrtStar.RenderUnseenCostMap("unseen.png")
 		}
 
+		for i := 0; i < *numTargets; i++ {
+			target := rrtstar.NewTarget(rrtstar.RandomWalk, uint32(rand.Int31n(5)), obstacleImage)
+			targets = append(targets, target)
+		}
+
 		obstaclesTexture = getTextureGray(obstacleImage)
 		defer gl.DeleteTextures(1, &obstaclesTexture)
 		reshape(window, width, height)
@@ -485,6 +502,11 @@ func main() {
 				rrtStar.SampleRrtStar()
 				if i%*iterationsPerFrame == 0 {
 					rrtStar.MoveStartPoint(moveX, moveY)
+
+					for _, target := range targets {
+						target.MoveTarget()
+					}
+
 					invalidate()
 				}
 			} else if *isLooping {

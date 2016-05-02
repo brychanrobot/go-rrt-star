@@ -11,6 +11,26 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
+func pointInRectangle(point image.Point, rect image.Rectangle) bool {
+	return (point.X > rect.Min.X && point.Y > rect.Min.Y) && (point.X < rect.Max.X && point.Y < rect.Max.Y)
+}
+
+func pointIntersectsObstacle(point image.Point, obstacles *image.Gray, minObstacleColor uint8) bool {
+	return obstacles.GrayAt(point.X, point.Y).Y > minObstacleColor
+}
+
+func randomOpenAreaPoint(obstacles *image.Gray, width int, height int) *image.Point {
+	var point image.Point
+	for true {
+		point = randomPoint(width, height)
+		if !pointIntersectsObstacle(point, obstacles, 200) {
+			break
+		}
+	}
+
+	return &point
+}
+
 func randomPoint(dx int, dy int) image.Point {
 	point := image.Pt(int(rand.Int31n(int32(dx))), int(rand.Int31n(int32(dy))))
 
