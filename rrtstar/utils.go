@@ -11,7 +11,13 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-func pointInRectangle(point image.Point, rect image.Rectangle) bool {
+func inflateRectangle(r *image.Rectangle, amount int) {
+	offset := image.Pt(amount, amount)
+	r.Min = r.Min.Sub(offset)
+	r.Max = r.Max.Add(offset)
+}
+
+func rectangleContainsPoint(rect image.Rectangle, point image.Point) bool {
 	return (point.X > rect.Min.X && point.Y > rect.Min.Y) && (point.X < rect.Max.X && point.Y < rect.Max.Y)
 }
 
@@ -95,6 +101,7 @@ func generateObstacleImage(width int, height int, obstacles []*image.Rectangle) 
 
 	for _, obstacle := range obstacles {
 		draw2dkit.Rectangle(gc, float64(obstacle.Min.X), float64(obstacle.Min.Y), float64(obstacle.Max.X), float64(obstacle.Max.Y))
+		inflateRectangle(obstacle, -5)
 	}
 
 	gc.Fill()

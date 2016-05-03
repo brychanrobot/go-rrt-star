@@ -45,6 +45,16 @@ var (
 	targets []*rrtstar.Target
 )
 
+type Alignment uint32
+
+const (
+	Center Alignment = iota
+	Top
+	Bottom
+	Left
+	Right
+)
+
 func reshape(window *glfw.Window, w, h int) {
 	gl.ClearColor(1, 1, 1, 1)
 	/* Establish viewing area to cover entire window. */
@@ -360,23 +370,47 @@ func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
 
 func drawTargets(targets []*rrtstar.Target, color colorful.Color) {
 	for _, target := range targets {
-		drawPoint(target.Point, 30, color)
-		drawString(fmt.Sprintf("%d", target.Importance), target.Point, colorful.Hsv(310, 1, 1))
+		drawPoint(target.Point, 40, color)
+		drawString(fmt.Sprintf("%d", target.Importance), target.Point, Center, Center, colorful.Hsv(310, 1, 0))
 	}
 }
 
-func drawString(value string, point image.Point, color colorful.Color) {
+func drawString(value string, point image.Point, hAlign, vAlign Alignment, color colorful.Color) {
 	sw, sh := font.Metrics(value)
+
+	var topLeft image.Point
+	switch hAlign {
+	case Left:
+		topLeft.X = point.X
+	case Center:
+		topLeft.X = point.X - sw/2
+	case Right:
+		topLeft.X = point.X - sw
+	default:
+		topLeft.X = point.X
+	}
+
+	switch vAlign {
+	case Top:
+		topLeft.Y = point.Y
+	case Center:
+		topLeft.Y = point.Y - sh*2/5
+	case Bottom:
+		topLeft.Y = point.Y - sh
+	default:
+		topLeft.Y = point.Y
+	}
+
 	gl.Color4d(0, 0, 0, 0)
-	gl.Rectd(float64(point.X), float64(point.Y), float64(sw), float64(sh))
+	gl.Rectd(float64(topLeft.X), float64(topLeft.Y), float64(sw), float64(sh))
 
 	// Render the string.
 	gl.Color3d(color.R, color.G, color.B)
 
-	font.Printf(float32(point.X), float32(point.Y), value)
+	font.Printf(float32(topLeft.X), float32(topLeft.Y), value)
 }
 
-func display(iteration int, showTree, showViewshed, showPath, showIterationCount bool) {
+func display(iteration uint64, showTree, showViewshed, showPath, showIterationCount bool) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.ClearColor(0, 0, 0, 0)
 
@@ -391,6 +425,8 @@ func display(iteration int, showTree, showViewshed, showPath, showIterationCount
 		drawTreeFaster(rrtStar.Root, 250)
 	}
 
+	drawTargets(targets, colorful.Hsv(110, 1, 1))
+
 	if showPath {
 		drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
 
@@ -398,10 +434,8 @@ func display(iteration int, showTree, showViewshed, showPath, showIterationCount
 		drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
 	}
 
-	drawTargets(targets, colorful.Hsv(110, 1, 1))
-
 	if showIterationCount {
-		drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), colorful.Hsv(180, 1, 1))
+		drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), Left, Top, colorful.Hsv(180, 1, 1))
 	}
 
 	if showViewshed {
@@ -482,19 +516,19 @@ func main() {
 		//obstacles := readImageGray("dragon.png")
 		var obstacleImage *image.Gray
 		obstacleRects, obstacleImage = rrtstar.GenerateObstacles(width, height, *numObstacles)
-		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 20, width, height)
+		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 20, width, height, nil, nil)
 
 		if *renderCostmap {
 			rrtStar.RenderUnseenCostMap("unseen.png")
 		}
 
 		for i := 0; i < *numTargets; i++ {
-			target := rrtstar.NewTarget(rrtstar.RandomWalk, uint32(rand.Int31n(5)), obstacleImage)
+			target := rrtstar.NewTarget(rrtstar.RandomRrt, uint32(rand.Int31n(5))+1, obstacleImage)
 			targets = append(targets, target)
 		}
 
-		obstaclesTexture = getTextureGray(obstacleImage)
-		defer gl.DeleteTextures(1, &obstaclesTexture)
+		//obstaclesTexture = getTextureGray(obstacleImage)
+		//defer gl.DeleteTextures(1, &obstaclesTexture)
 		reshape(window, width, height)
 		for i := 0; !window.ShouldClose(); i++ {
 
@@ -521,7 +555,7 @@ func main() {
 					//fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
 				}
 
-				display(rrtstar.NUM_NODES, *showTree, *showViewshed, *showPath, *showIterationCount)
+				display(rrtStar.NumNodes, *showTree, *showViewshed, *showPath, *showIterationCount)
 				window.SwapBuffers()
 				redraw = false
 

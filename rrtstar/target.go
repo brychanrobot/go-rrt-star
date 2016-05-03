@@ -10,6 +10,7 @@ type MovementType uint32
 
 const (
 	RandomWalk MovementType = iota
+	RandomRrt
 )
 
 const maxDistance = 5
@@ -18,9 +19,11 @@ type Target struct {
 	image.Point
 	movementType  MovementType
 	obstacleImage *image.Gray
+	obstacleRects []*image.Rectangle
 	mapBounds     image.Rectangle
 	Importance    uint32
 	heading       float64
+	rrtStar       *RrtStar
 }
 
 func NewTarget(movementType MovementType, importance uint32, obstacleImage *image.Gray) *Target {
@@ -50,7 +53,7 @@ func (t *Target) walkRandomly() {
 
 		newPoint = t.Point.Add(image.Pt(int(dx), int(dy)))
 
-		isInObstacle = !pointInRectangle(newPoint, t.mapBounds) || pointIntersectsObstacle(newPoint, t.obstacleImage, 20)
+		isInObstacle = !rectangleContainsPoint(t.mapBounds, newPoint) || pointIntersectsObstacle(newPoint, t.obstacleImage, 20)
 	}
 
 	//log.Println(newPoint)
@@ -58,9 +61,21 @@ func (t *Target) walkRandomly() {
 	t.heading = newHeading
 }
 
+func (t *Target) followRrtPath() {
+	if t.rrtStar == nil {
+		t.rrtStar = NewRrtStar(t.obstacleImage, t.obstacleRects, 30, t.mapBounds.Dx(), t.mapBounds.Dy(), &t.Point, nil)
+		for len(t.rrtStar.BestPath) == 0 {
+			t.rrtStar.SampleRrtStar()
+		}
+	}
+
+}
+
 func (t *Target) MoveTarget() {
 	switch t.movementType {
 	case RandomWalk:
 		t.walkRandomly()
+	case RandomRrt:
+		t.followRrtPath()
 	}
 }

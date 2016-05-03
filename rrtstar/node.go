@@ -8,7 +8,6 @@ import (
 
 var (
 	tolerance = 0.01
-	NUM_NODES = 0
 )
 
 // Node Represents an RRT Node
@@ -28,8 +27,6 @@ func (n *Node) AddChild(point image.Point, cost, unseenArea float64) *Node {
 		CumulativeCost: n.CumulativeCost + cost,
 		UnseenArea:     unseenArea}
 	n.Children = append(n.Children, &newNode)
-
-	NUM_NODES++
 
 	return &newNode
 }

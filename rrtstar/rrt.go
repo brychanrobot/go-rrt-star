@@ -28,6 +28,8 @@ type RrtStar struct {
 	BestPath           []*image.Point
 	Viewshed           viewshed.Viewshed
 	mapArea            float64
+	IsAddingNodes      bool
+	NumNodes           uint64
 }
 
 const (
@@ -64,15 +66,21 @@ func (r *RrtStar) RenderUnseenCostMap(filename string) {
 }
 
 // NewRrtStar creates a new rrt Star
-func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, maxSegment float64, width int, height int) *RrtStar {
-	startPoint := randomOpenAreaPoint(obstacleImage, width, height)
-	var endPoint *image.Point
-	//make sure the endpoint is at least half the screen away from the start to guarantee some difficulty
-	for endPoint == nil || euclideanDistance(startPoint, endPoint) < float64(width)/2.0 {
-		endPoint = randomOpenAreaPoint(obstacleImage, width, height)
+func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, maxSegment float64, width int, height int,
+	startPoint, endPoint *image.Point) *RrtStar {
+
+	if startPoint == nil {
+		startPoint = randomOpenAreaPoint(obstacleImage, width, height)
 	}
+	//var endPoint *image.Point
+	//make sure the endpoint is at least half the screen away from the start to guarantee some difficulty
+	if endPoint == nil {
+		for endPoint == nil || euclideanDistance(startPoint, endPoint) < float64(width)/2.0 {
+			endPoint = randomOpenAreaPoint(obstacleImage, width, height)
+		}
+	}
+
 	rrtRoot := &Node{parent: nil, Point: *startPoint, CumulativeCost: 0}
-	NUM_NODES++
 	rtree := rtreego.NewTree(2, 25, 50)
 	rtree.Insert(rrtRoot)
 
@@ -87,7 +95,8 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*image.Rectangle, max
 		height:             height,
 		StartPoint:         startPoint,
 		EndPoint:           endPoint,
-		mapArea:            float64(width * height)}
+		mapArea:            float64(width * height),
+		NumNodes:           1}
 
 	rrtStar.Viewshed.LoadMap(float64(width), float64(height), 0, obstacleRects, nil)
 	//rrtStar.Viewshed.UpdateCenterLocation(float64(startPoint.X), float64(startPoint.Y))
@@ -128,7 +137,7 @@ func (r *RrtStar) MoveStartPoint(dx, dy float64) {
 		r.StartPoint.Y += int(dy)
 		//log.Println(r.StartPoint)
 		newRoot := &Node{parent: nil, Point: *r.StartPoint, CumulativeCost: 0}
-		NUM_NODES++
+		r.NumNodes++
 		newRoot.UnseenArea = r.getUnseenArea(&newRoot.Point)
 		r.rtree.Insert(newRoot)
 
@@ -173,7 +182,7 @@ func (r *RrtStar) Prune(minorAxisSquares int) {
 				if len(neighbor.Children) == 0 {
 					neighbor.parent.RemoveChild(neighbor)
 					r.rtree.Delete(neighbor)
-					NUM_NODES--
+					r.NumNodes--
 				}
 			}
 		}
@@ -233,6 +242,7 @@ func (r *RrtStar) refreshBestPath() {
 
 		if bestNeighbor != nil {
 			r.endNode = bestNeighbor.AddChild(*r.EndPoint, bestCost, unseenArea)
+			r.NumNodes++
 			r.rtree.Insert(r.endNode)
 			r.traceBestPath()
 		}
@@ -298,6 +308,7 @@ func (r *RrtStar) sampleRrtStarWithNewNode() {
 		if bestNeighbor != nil { //!r.lineIntersectsObstacle(point, bestNeighbor.Point, 200) {
 			//unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
 			newNode := bestNeighbor.AddChild(point, bestCost, unseenArea)
+			r.NumNodes++
 			r.rtree.Insert(newNode)
 
 			for i, neighbor := range neighbors {
@@ -330,37 +341,12 @@ func (r *RrtStar) sampleRrtStarWithoutNewNode() {
 
 // SampleRrtStar performs one iteration of rrt*
 func (r *RrtStar) SampleRrtStar() {
-	nodeRatio := int(0.01 * float64(r.width*r.height))
-	//log.Println(nodeRatio)
-	if NUM_NODES < nodeRatio {
+	nodeRatio := uint64(0.01 * float64(r.width*r.height))
+	r.IsAddingNodes = r.NumNodes < nodeRatio
+	if r.IsAddingNodes {
 		r.sampleRrtStarWithNewNode()
 	} else {
 		r.sampleRrtStarWithoutNewNode()
 	}
 	r.refreshBestPath()
 }
-
-// SampleRrt does rrt but ignores obstacles
-/*
-func SampleRrt(obstacles *image.Gray) {
-	point := randomPoint(width, height)
-
-	nnSpatial := rtree.NearestNeighbor(rtreego.Point{float64(point.X), float64(point.Y)})
-	nn := nnSpatial.(*Node)
-
-	dist := euclideanDistance(nn.point, point)
-
-	//log.Println(dist)
-
-	if dist > maxSegment {
-		angle := angleBetweenPoints(nn.point, point)
-		x := int(maxSegment*math.Cos(angle)) + nn.point.X
-		y := int(maxSegment*math.Sin(angle)) + nn.point.Y
-		point = image.Pt(x, y)
-	}
-
-	newNode := nn.AddChild(point, dist)
-	rtree.Insert(newNode)
-	//invalidate()
-}
-*/
