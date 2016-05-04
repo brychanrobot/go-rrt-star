@@ -370,6 +370,7 @@ func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
 
 func drawTargets(targets []*rrtstar.Target, color colorful.Color) {
 	for _, target := range targets {
+		drawPath(append(target.CurrentPath, &target.Point), colorful.Hsv(60, 1, 1), 3)
 		drawPoint(target.Point, 40, color)
 		drawString(fmt.Sprintf("%d", target.Importance), target.Point, Center, Center, colorful.Hsv(310, 1, 0))
 	}

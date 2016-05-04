@@ -23,7 +23,8 @@ type Target struct {
 	mapBounds     image.Rectangle
 	Importance    uint32
 	heading       float64
-	rrtStar       *RrtStar
+	//rrtStar       *RrtStar
+	CurrentPath []*image.Point
 }
 
 func NewTarget(movementType MovementType, importance uint32, obstacleImage *image.Gray) *Target {
@@ -62,11 +63,12 @@ func (t *Target) walkRandomly() {
 }
 
 func (t *Target) followRrtPath() {
-	if t.rrtStar == nil {
-		t.rrtStar = NewRrtStar(t.obstacleImage, t.obstacleRects, 30, t.mapBounds.Dx(), t.mapBounds.Dy(), &t.Point, nil)
-		for len(t.rrtStar.BestPath) == 0 {
-			t.rrtStar.SampleRrtStar()
+	if len(t.CurrentPath) == 0 {
+		rrtStar := NewRrtStar(t.obstacleImage, t.obstacleRects, 30, t.mapBounds.Dx(), t.mapBounds.Dy(), &t.Point, nil)
+		for len(rrtStar.BestPath) == 0 {
+			rrtStar.SampleRrtStar()
 		}
+		t.CurrentPath = rrtStar.BestPath[:len(rrtStar.BestPath)-1]
 	}
 
 }
