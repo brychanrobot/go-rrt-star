@@ -13,7 +13,7 @@ const (
 	RandomRrt
 )
 
-const maxDistance = 5
+const maxTravel = 2
 
 type Waldo struct {
 	image.Point
@@ -25,6 +25,7 @@ type Waldo struct {
 	heading       float64
 	//rrtStar       *RrtStar
 	CurrentPath []*image.Point
+	Replanning  bool
 }
 
 func NewWaldo(movementType MovementType, importance uint32, obstacleImage *image.Gray) *Waldo {
@@ -45,7 +46,7 @@ func (w *Waldo) walkRandomly() {
 	var newHeading float64
 	for isInObstacle {
 		newHeading = w.heading + rand.Float64()*math.Pi*0.1 - math.Pi*0.05
-		distance := rand.Float64() * maxDistance
+		distance := rand.Float64() * maxTravel
 
 		dx := distance * math.Cos(newHeading)
 		dy := distance * math.Sin(newHeading)
@@ -63,12 +64,30 @@ func (w *Waldo) walkRandomly() {
 }
 
 func (w *Waldo) followRrtPath() {
-	if len(w.CurrentPath) == 0 {
-		rrtStar := NewRrtStar(w.obstacleImage, w.obstacleRects, 30, w.mapBounds.Dx(), w.mapBounds.Dy(), &w.Point, nil)
-		for len(rrtStar.BestPath) == 0 {
-			rrtStar.SampleRrtStar()
+	if !w.Replanning {
+		if len(w.CurrentPath) == 0 {
+			w.Replanning = true
+			go func() {
+				rrtStar := NewRrtStar(w.obstacleImage, w.obstacleRects, 30, w.mapBounds.Dx(), w.mapBounds.Dy(), &w.Point, nil)
+				for len(rrtStar.BestPath) == 0 {
+					rrtStar.SampleRrtStar()
+				}
+				w.CurrentPath = rrtStar.BestPath[:len(rrtStar.BestPath)-1]
+				w.Replanning = false
+			}()
+			return
 		}
-		w.CurrentPath = rrtStar.BestPath[:len(rrtStar.BestPath)-1]
+
+		nextWaypoint := w.CurrentPath[len(w.CurrentPath)-1]
+		if euclideanDistance(&w.Point, nextWaypoint) <= maxTravel {
+			w.CurrentPath = w.CurrentPath[:len(w.CurrentPath)-1]
+			w.Point = *nextWaypoint
+		} else {
+			angle := angleBetweenPoints(w.Point, *nextWaypoint)
+			x := int(maxTravel*math.Cos(angle)) + w.Point.X
+			y := int(maxTravel*math.Sin(angle)) + w.Point.Y
+			w.Point = image.Pt(x, y)
+		}
 	}
 
 }

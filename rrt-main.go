@@ -370,8 +370,8 @@ func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
 
 func drawWaldos(waldos []*rrtstar.Waldo, color colorful.Color) {
 	for _, waldo := range waldos {
-		drawPath(append(waldo.CurrentPath, &waldo.Point), colorful.Hsv(60, 1, 1), 3)
-		drawPoint(waldo.Point, 40, color)
+		drawPath(append(waldo.CurrentPath, &waldo.Point), colorful.Hsv(280, 1, 0.3), 3)
+		drawPoint(waldo.Point, 30, color)
 		drawString(fmt.Sprintf("%d", waldo.Importance), waldo.Point, Center, Center, colorful.Hsv(310, 1, 0))
 	}
 }
@@ -426,7 +426,7 @@ func display(iteration uint64, showTree, showViewshed, showPath, showIterationCo
 		drawTreeFaster(rrtStar.Root, 250)
 	}
 
-	drawWaldos(waldos, colorful.Hsv(110, 1, 1))
+	drawWaldos(waldos, colorful.Hsv(290, 1, 1))
 
 	if showPath {
 		drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
@@ -504,7 +504,7 @@ func main() {
 		panic(glErr)
 	}
 
-	font, err = loadFont("luxisr.ttf", int32(44))
+	font, err = loadFont("luxisr.ttf", int32(25))
 	if err != nil {
 		log.Printf("LoadFont: %v", err)
 		return
