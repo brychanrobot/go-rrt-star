@@ -42,7 +42,7 @@ var (
 	moveX float64
 	moveY float64
 
-	targets []*rrtstar.Target
+	waldos []*rrtstar.Waldo
 )
 
 type Alignment uint32
@@ -368,11 +368,11 @@ func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
 	gl.End()
 }
 
-func drawTargets(targets []*rrtstar.Target, color colorful.Color) {
-	for _, target := range targets {
-		drawPath(append(target.CurrentPath, &target.Point), colorful.Hsv(60, 1, 1), 3)
-		drawPoint(target.Point, 40, color)
-		drawString(fmt.Sprintf("%d", target.Importance), target.Point, Center, Center, colorful.Hsv(310, 1, 0))
+func drawWaldos(waldos []*rrtstar.Waldo, color colorful.Color) {
+	for _, waldo := range waldos {
+		drawPath(append(waldo.CurrentPath, &waldo.Point), colorful.Hsv(60, 1, 1), 3)
+		drawPoint(waldo.Point, 40, color)
+		drawString(fmt.Sprintf("%d", waldo.Importance), waldo.Point, Center, Center, colorful.Hsv(310, 1, 0))
 	}
 }
 
@@ -426,7 +426,7 @@ func display(iteration uint64, showTree, showViewshed, showPath, showIterationCo
 		drawTreeFaster(rrtStar.Root, 250)
 	}
 
-	drawTargets(targets, colorful.Hsv(110, 1, 1))
+	drawWaldos(waldos, colorful.Hsv(110, 1, 1))
 
 	if showPath {
 		drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
@@ -463,7 +463,7 @@ func main() {
 	showIterationCount := flag.Bool("count", true, "shows the iteration count")
 	showTree := flag.Bool("tree", false, "draws the tree")
 	showViewshed := flag.Bool("viewshed", false, "draws the viewshed at the mouse cursor location")
-	numTargets := flag.Int("targets", 2, "the number of targets to simulate")
+	numWaldos := flag.Int("waldos", 2, "the number of waldos to simulate")
 	flag.Parse()
 
 	glfwErr := glfw.Init()
@@ -523,9 +523,9 @@ func main() {
 			rrtStar.RenderUnseenCostMap("unseen.png")
 		}
 
-		for i := 0; i < *numTargets; i++ {
-			target := rrtstar.NewTarget(rrtstar.RandomRrt, uint32(rand.Int31n(5))+1, obstacleImage)
-			targets = append(targets, target)
+		for i := 0; i < *numWaldos; i++ {
+			waldo := rrtstar.NewWaldo(rrtstar.RandomRrt, uint32(rand.Int31n(5))+1, obstacleImage)
+			waldos = append(waldos, waldo)
 		}
 
 		//obstaclesTexture = getTextureGray(obstacleImage)
@@ -538,8 +538,8 @@ func main() {
 				if i%*iterationsPerFrame == 0 {
 					rrtStar.MoveStartPoint(moveX, moveY)
 
-					for _, target := range targets {
-						target.MoveTarget()
+					for _, waldo := range waldos {
+						waldo.MoveWaldo()
 					}
 
 					invalidate()

@@ -15,7 +15,7 @@ const (
 
 const maxDistance = 5
 
-type Target struct {
+type Waldo struct {
 	image.Point
 	movementType  MovementType
 	obstacleImage *image.Gray
@@ -27,24 +27,24 @@ type Target struct {
 	CurrentPath []*image.Point
 }
 
-func NewTarget(movementType MovementType, importance uint32, obstacleImage *image.Gray) *Target {
-	target := &Target{
+func NewWaldo(movementType MovementType, importance uint32, obstacleImage *image.Gray) *Waldo {
+	waldo := &Waldo{
 		movementType:  movementType,
 		Importance:    importance,
 		obstacleImage: obstacleImage,
 		mapBounds:     obstacleImage.Bounds()}
 
-	target.Point = *randomOpenAreaPoint(obstacleImage, target.mapBounds.Dx(), target.mapBounds.Dy())
-	//log.Println(target.Point)
-	return target
+	waldo.Point = *randomOpenAreaPoint(obstacleImage, waldo.mapBounds.Dx(), waldo.mapBounds.Dy())
+	//log.Println(waldo.Point)
+	return waldo
 }
 
-func (t *Target) walkRandomly() {
+func (w *Waldo) walkRandomly() {
 	isInObstacle := true
 	var newPoint image.Point
 	var newHeading float64
 	for isInObstacle {
-		newHeading = t.heading + rand.Float64()*math.Pi*0.1 - math.Pi*0.05
+		newHeading = w.heading + rand.Float64()*math.Pi*0.1 - math.Pi*0.05
 		distance := rand.Float64() * maxDistance
 
 		dx := distance * math.Cos(newHeading)
@@ -52,32 +52,32 @@ func (t *Target) walkRandomly() {
 
 		//log.Printf("%f, %f\n", dx, dy)
 
-		newPoint = t.Point.Add(image.Pt(int(dx), int(dy)))
+		newPoint = w.Point.Add(image.Pt(int(dx), int(dy)))
 
-		isInObstacle = !rectangleContainsPoint(t.mapBounds, newPoint) || pointIntersectsObstacle(newPoint, t.obstacleImage, 20)
+		isInObstacle = !rectangleContainsPoint(w.mapBounds, newPoint) || pointIntersectsObstacle(newPoint, w.obstacleImage, 20)
 	}
 
 	//log.Println(newPoint)
-	t.Point = newPoint
-	t.heading = newHeading
+	w.Point = newPoint
+	w.heading = newHeading
 }
 
-func (t *Target) followRrtPath() {
-	if len(t.CurrentPath) == 0 {
-		rrtStar := NewRrtStar(t.obstacleImage, t.obstacleRects, 30, t.mapBounds.Dx(), t.mapBounds.Dy(), &t.Point, nil)
+func (w *Waldo) followRrtPath() {
+	if len(w.CurrentPath) == 0 {
+		rrtStar := NewRrtStar(w.obstacleImage, w.obstacleRects, 30, w.mapBounds.Dx(), w.mapBounds.Dy(), &w.Point, nil)
 		for len(rrtStar.BestPath) == 0 {
 			rrtStar.SampleRrtStar()
 		}
-		t.CurrentPath = rrtStar.BestPath[:len(rrtStar.BestPath)-1]
+		w.CurrentPath = rrtStar.BestPath[:len(rrtStar.BestPath)-1]
 	}
 
 }
 
-func (t *Target) MoveTarget() {
-	switch t.movementType {
+func (w *Waldo) MoveWaldo() {
+	switch w.movementType {
 	case RandomWalk:
-		t.walkRandomly()
+		w.walkRandomly()
 	case RandomRrt:
-		t.followRrtPath()
+		w.followRrtPath()
 	}
 }
