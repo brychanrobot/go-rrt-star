@@ -1,4 +1,4 @@
-package viewshed
+package utils
 
 // Point holds an x, y point
 type Point struct {

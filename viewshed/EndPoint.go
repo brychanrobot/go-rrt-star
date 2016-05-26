@@ -1,8 +1,10 @@
 package viewshed
 
+import "github.com/skelterjohn/geom"
+
 // EndPoint holds an x, y and much much more
 type EndPoint struct {
-	*Point
+	*geom.Coord
 	begin     bool
 	segment   *Segment
 	angle     float64

@@ -22,6 +22,7 @@ import (
 	"github.com/go-gl/gltext"
 	"github.com/harrydb/go/img/grayscale"
 	"github.com/lucasb-eyer/go-colorful"
+	"github.com/skelterjohn/geom"
 )
 
 var (
@@ -31,7 +32,7 @@ var (
 	redraw           = true
 	font             *gltext.Font
 	obstaclesTexture uint32
-	obstacleRects    []*image.Rectangle
+	obstacleRects    []*geom.Rect
 	rrtStar          *rrtstar.RrtStar
 	frames           []*image.NRGBA
 	frameCount       int
@@ -193,7 +194,7 @@ func getTextureGray(gray *image.Gray) uint32 {
 	return texture
 }
 
-func drawCircle(point image.Point, radius float64, numSegments int, color colorful.Color) {
+func drawCircle(point geom.Coord, radius float64, numSegments int, color colorful.Color) {
 	theta := 2 * 3.1415926 / float64(numSegments)
 	tangentialFactor := math.Tan(theta) //calculate the tangential factor
 
@@ -230,7 +231,7 @@ func drawCircle(point image.Point, radius float64, numSegments int, color colorf
 	gl.End()
 }
 
-func drawPoint(point image.Point, radius float32, color colorful.Color) {
+func drawPoint(point geom.Coord, radius float32, color colorful.Color) {
 	gl.Enable(gl.POINT_SMOOTH)
 	gl.Hint(gl.POINT_SMOOTH_HINT, gl.NICEST)
 	gl.PointSize(radius)
@@ -241,7 +242,18 @@ func drawPoint(point image.Point, radius float32, color colorful.Color) {
 	gl.End()
 }
 
-func drawLine(p1 image.Point, p2 image.Point, color colorful.Color) {
+func drawFloatPoint(x, y float64, radius float32, color colorful.Color) {
+	gl.Enable(gl.POINT_SMOOTH)
+	gl.Hint(gl.POINT_SMOOTH_HINT, gl.NICEST)
+	gl.PointSize(radius)
+
+	gl.Begin(gl.POINTS)
+	gl.Color3d(color.R, color.G, color.B)
+	gl.Vertex2d(x, y)
+	gl.End()
+}
+
+func drawLine(p1 geom.Coord, p2 geom.Coord, color colorful.Color) {
 	gl.Color3d(color.R, color.G, color.B)
 	gl.LineWidth(1)
 	gl.Begin(gl.LINES)
@@ -283,7 +295,7 @@ func drawTreeFaster(node *rrtstar.Node, lineHue float64) {
 	gl.End()
 }
 
-func drawPath(path []*image.Point, color colorful.Color, thickness float32) {
+func drawPath(path []*geom.Coord, color colorful.Color, thickness float32) {
 	gl.Enable(gl.LINE_SMOOTH)
 	//gl.Enable(gl.BLEND)
 
@@ -299,7 +311,7 @@ func drawPath(path []*image.Point, color colorful.Color, thickness float32) {
 	//gl.Disable(gl.BLEND)
 }
 
-func drawViewshed(path []*viewshed.Point, center *viewshed.Point, color colorful.Color, thickness float32) {
+func drawViewshed(path []*geom.Coord, center *geom.Coord, color colorful.Color, thickness float32) {
 	gl.Enable(gl.LINE_SMOOTH)
 	//gl.Enable(gl.SMOOTH)
 	//gl.ShadeModel(gl.SMOOTH_QUADRATIC_CURVE_TO_NV)
@@ -356,30 +368,35 @@ func drawBackground(color colorful.Color) {
 	gl.Disable(gl.TEXTURE_2D)
 }
 
-func drawObstacles(obstacleRects []*image.Rectangle, color colorful.Color) {
+func drawObstacles(obstacleRects []*geom.Rect, color colorful.Color) {
 	gl.Begin(gl.QUADS)
 	gl.Color3d(color.R, color.G, color.B)
 	for _, rect := range obstacleRects {
-		gl.Vertex2d(float64(rect.Min.X), float64(rect.Min.Y))
-		gl.Vertex2d(float64(rect.Max.X), float64(rect.Min.Y))
-		gl.Vertex2d(float64(rect.Max.X), float64(rect.Max.Y))
-		gl.Vertex2d(float64(rect.Min.X), float64(rect.Max.Y))
+		gl.Vertex2d(rect.Min.X, rect.Min.Y)
+		gl.Vertex2d(rect.Max.X, rect.Min.Y)
+		gl.Vertex2d(rect.Max.X, rect.Max.Y)
+		gl.Vertex2d(rect.Min.X, rect.Max.Y)
 	}
 	gl.End()
 }
 
 func drawWaldos(waldos []*rrtstar.Waldo, color colorful.Color) {
 	for _, waldo := range waldos {
-		drawPath(append(waldo.CurrentPath, &waldo.Point), colorful.Hsv(280, 1, 0.3), 3)
-		drawPoint(waldo.Point, 30, color)
-		drawString(fmt.Sprintf("%d", waldo.Importance), waldo.Point, Center, Center, colorful.Hsv(310, 1, 0))
+		drawPath(append(waldo.CurrentPath, &waldo.Coord), colorful.Hsv(280, 1, 0.3), 3)
+		if waldo.CurrentWaypoint != nil {
+			drawPoint(*waldo.CurrentWaypoint, 10, colorful.Hsv(170, 1, 1))
+		}
+		drawFloatPoint(waldo.X, waldo.Y, 30, color)
+		drawStringPoint(fmt.Sprintf("%d", waldo.Importance), waldo.Coord, Center, Center, colorful.Hsv(310, 1, 0))
+		//drawString(fmt.Sprintf("%d", waldo.Importance), waldo.X, waldo.Y, Center, Center, colorful.Hsv(310, 1, 0))
 	}
 }
 
-func drawString(value string, point image.Point, hAlign, vAlign Alignment, color colorful.Color) {
+/*
+func drawString(value string, point geom.Coord, hAlign, vAlign Alignment, color colorful.Color) {
 	sw, sh := font.Metrics(value)
 
-	var topLeft image.Point
+	var topLeft geom.Coord
 	switch hAlign {
 	case Left:
 		topLeft.X = point.X
@@ -410,6 +427,46 @@ func drawString(value string, point image.Point, hAlign, vAlign Alignment, color
 
 	font.Printf(float32(topLeft.X), float32(topLeft.Y), value)
 }
+*/
+
+func drawStringPoint(value string, point geom.Coord, hAlign, vAlign Alignment, color colorful.Color) {
+	drawString(value, float64(point.X), float64(point.Y), hAlign, vAlign, color)
+}
+
+func drawString(value string, x, y float64, hAlign, vAlign Alignment, color colorful.Color) {
+	sw, sh := font.Metrics(value)
+
+	var topLeftX, topLeftY float64
+	switch hAlign {
+	case Left:
+		topLeftX = x
+	case Center:
+		topLeftX = x - float64(sw)/2.0
+	case Right:
+		topLeftX = x - float64(sw)
+	default:
+		topLeftX = x
+	}
+
+	switch vAlign {
+	case Top:
+		topLeftY = y
+	case Center:
+		topLeftY = y - float64(sh)*2.0/5.0
+	case Bottom:
+		topLeftY = y - float64(sh)
+	default:
+		topLeftY = y
+	}
+
+	gl.Color4d(0, 0, 0, 0)
+	gl.Rectd(topLeftX, topLeftY, float64(sw), float64(sh))
+
+	// Render the string.
+	gl.Color3d(color.R, color.G, color.B)
+
+	font.Printf(float32(topLeftX), float32(topLeftY), value)
+}
 
 func display(iteration uint64, showTree, showViewshed, showPath, showIterationCount bool) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -436,11 +493,11 @@ func display(iteration uint64, showTree, showViewshed, showPath, showIterationCo
 	}
 
 	if showIterationCount {
-		drawString(fmt.Sprintf("%d", iteration), image.Pt(10, 10), Left, Top, colorful.Hsv(180, 1, 1))
+		drawStringPoint(fmt.Sprintf("%d", iteration), geom.Coord{X: 10, Y: 10}, Left, Top, colorful.Hsv(180, 1, 1))
 	}
 
 	if showViewshed {
-		drawPoint(image.Pt(int(cursorX), int(cursorY)), 10, colorful.Hsv(330, 1, 1))
+		drawPoint(geom.Coord{X: cursorX, Y: cursorY}, 10, colorful.Hsv(330, 1, 1))
 	}
 
 	gl.Flush() /* Single buffered, so needs a flush. */

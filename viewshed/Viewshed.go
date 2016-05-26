@@ -1,47 +1,48 @@
 package viewshed
 
 import (
-	"image"
 	"math"
 	"sort"
+
+	"github.com/skelterjohn/geom"
 )
 
 // Viewshed calculates and stores a viewshed given obstacle segments
 type Viewshed struct {
 	Segments        []*Segment
 	endpoints       []*EndPoint
-	Center          Point
-	ViewablePolygon []*Point
+	Center          geom.Coord
+	ViewablePolygon []*geom.Coord
 	open            []*Segment
 }
 
-func leftOf(s *Segment, p *Point) bool {
+func leftOf(s *Segment, p *geom.Coord) bool {
 	cross := (s.P2.X-s.P1.X)*(p.Y-s.P1.Y) - (s.P2.Y-s.P1.Y)*(p.X-s.P1.X)
 	return cross < 0
 }
 
-func interpolate(p *Point, q *Point, f float64) *Point {
-	return &Point{p.X*(1-f) + q.X*f, p.Y*(1-f) + q.Y*f}
+func interpolate(p *geom.Coord, q *geom.Coord, f float64) *geom.Coord {
+	return &geom.Coord{X: p.X*(1-f) + q.X*f, Y: p.Y*(1-f) + q.Y*f}
 }
 
-func segmentInFrontOf(a *Segment, b *Segment, relativeTo *Point) bool {
-	A1 := leftOf(a, interpolate(b.P1.Point, b.P2.Point, 0.01))
-	A2 := leftOf(a, interpolate(b.P2.Point, b.P1.Point, 0.01))
+func segmentInFrontOf(a *Segment, b *Segment, relativeTo *geom.Coord) bool {
+	A1 := leftOf(a, interpolate(b.P1.Coord, b.P2.Coord, 0.01))
+	A2 := leftOf(a, interpolate(b.P2.Coord, b.P1.Coord, 0.01))
 	A3 := leftOf(a, relativeTo)
 
-	B1 := leftOf(b, interpolate(a.P1.Point, a.P2.Point, 0.01))
-	B2 := leftOf(b, interpolate(a.P2.Point, a.P1.Point, 0.01))
+	B1 := leftOf(b, interpolate(a.P1.Coord, a.P2.Coord, 0.01))
+	B2 := leftOf(b, interpolate(a.P2.Coord, a.P1.Coord, 0.01))
 	B3 := leftOf(b, relativeTo)
 
 	return (B1 == B2 && B2 != B3) || (A1 == A2 && A2 == A3)
 }
 
-func lineIntersection(p1 *Point, p2 *Point, p3 *Point, p4 *Point) *Point {
+func lineIntersection(p1 *geom.Coord, p2 *geom.Coord, p3 *geom.Coord, p4 *geom.Coord) *geom.Coord {
 	s := ((p4.X-p3.X)*(p1.Y-p3.Y) - (p4.Y-p3.Y)*(p1.X-p3.X)) / ((p4.Y-p3.Y)*(p2.X-p1.X) - (p4.X-p3.X)*(p2.Y-p1.Y))
-	return &Point{p1.X + s*(p2.X-p1.X), p1.Y + s*(p2.Y-p1.Y)}
+	return &geom.Coord{X: p1.X + s*(p2.X-p1.X), Y: p1.Y + s*(p2.Y-p1.Y)}
 }
 
-func squareDistance(p1 *Point, p2 *Point) float64 {
+func squareDistance(p1 *geom.Coord, p2 *geom.Coord) float64 {
 	dx := p1.X - p2.X
 	dy := p1.Y - p2.Y
 
@@ -56,7 +57,7 @@ func (v *Viewshed) loadEdgeOfMap(width float64, height float64, margin float64) 
 }
 
 // LoadMap loads a map from width, height, and a list of walls
-func (v *Viewshed) LoadMap(width float64, height float64, margin float64, blocks []*image.Rectangle, walls []*Segment) {
+func (v *Viewshed) LoadMap(width float64, height float64, margin float64, blocks []*geom.Rect, walls []*Segment) {
 	v.Segments = v.Segments[:0] //clear the slice
 	v.endpoints = v.endpoints[:0]
 
@@ -82,16 +83,16 @@ func (v *Viewshed) LoadMap(width float64, height float64, margin float64, blocks
 	}
 }
 
-func (v *Viewshed) addSegmentsFromRectangle(rect *image.Rectangle) {
-	v.addSegment(float64(rect.Min.X), float64(rect.Min.Y), float64(rect.Max.X), float64(rect.Min.Y))
-	v.addSegment(float64(rect.Max.X), float64(rect.Min.Y), float64(rect.Max.X), float64(rect.Max.Y))
-	v.addSegment(float64(rect.Max.X), float64(rect.Max.Y), float64(rect.Min.X), float64(rect.Max.Y))
-	v.addSegment(float64(rect.Min.X), float64(rect.Max.Y), float64(rect.Min.X), float64(rect.Min.Y))
+func (v *Viewshed) addSegmentsFromRectangle(rect *geom.Rect) {
+	v.addSegment(rect.Min.X, rect.Min.Y, rect.Max.X, rect.Min.Y)
+	v.addSegment(rect.Max.X, rect.Min.Y, rect.Max.X, rect.Max.Y)
+	v.addSegment(rect.Max.X, rect.Max.Y, rect.Min.X, rect.Max.Y)
+	v.addSegment(rect.Min.X, rect.Max.Y, rect.Min.X, rect.Min.Y)
 }
 
 func (v *Viewshed) addSegment(x1 float64, y1 float64, x2 float64, y2 float64) {
-	p1 := EndPoint{Point: &Point{x1, y1}, visualize: true}
-	p2 := EndPoint{Point: &Point{x2, y2}, visualize: false} //not sure why visualize is false
+	p1 := EndPoint{Coord: &geom.Coord{X: x1, Y: y1}, visualize: true}
+	p2 := EndPoint{Coord: &geom.Coord{X: x2, Y: y2}, visualize: false} //not sure why visualize is false
 
 	segment := Segment{P1: &p1, P2: &p2}
 	p1.segment = &segment
@@ -103,9 +104,9 @@ func (v *Viewshed) addSegment(x1 float64, y1 float64, x2 float64, y2 float64) {
 
 func (v *Viewshed) addTriangle(angle1 float64, angle2 float64, segment *Segment) {
 	p1 := v.Center
-	p2 := Point{v.Center.X + math.Cos(angle1), v.Center.Y + math.Sin(angle1)}
-	p3 := Point{}
-	p4 := Point{}
+	p2 := geom.Coord{X: v.Center.X + math.Cos(angle1), Y: v.Center.Y + math.Sin(angle1)}
+	p3 := geom.Coord{}
+	p4 := geom.Coord{}
 
 	if segment != nil {
 		p3.X = segment.P1.X
@@ -132,7 +133,7 @@ func (v *Viewshed) addTriangle(angle1 float64, angle2 float64, segment *Segment)
 //  Input:  int n = the number of vertices in the polygon
 //          Point* V = an array of n+1 vertex points with V[n]=V[0]
 //  Return: the (float) area of the polygon
-func Area2DPolygon(points []*Point) float64 {
+func Area2DPolygon(points []*geom.Coord) float64 {
 	n := len(points)
 	closedPoints := append(points, points[0])
 	area := 0.0
@@ -152,7 +153,7 @@ func Area2DPolygon(points []*Point) float64 {
 // UpdateCenterLocation updates the center and recalculates all angles
 func (v *Viewshed) UpdateCenterLocation(x float64, y float64) {
 	//y = -y
-	v.Center = Point{x, y}
+	v.Center = geom.Coord{X: x, Y: y}
 
 	for _, segment := range v.Segments {
 		dx := 0.5*(segment.P1.X+segment.P2.X) - x
@@ -235,12 +236,12 @@ func (v *Viewshed) Sweep() {
 			}
 		}
 
-		closestIntersection := e.Point             //the intersection is the point if there isn't anything else
+		closestIntersection := e.Coord             //the intersection is the point if there isn't anything else
 		closestIntersectionDist := math.MaxFloat64 //squareDistance(&v.center, e.Point)
 		//closestIntersectionSegment := e.segment
 
 		for _, segment := range intersectedSegments {
-			intersection := lineIntersection(&v.Center, e.Point, segment.P1.Point, segment.P2.Point)
+			intersection := lineIntersection(&v.Center, e.Coord, segment.P1.Coord, segment.P2.Coord)
 			dist := squareDistance(&v.Center, intersection)
 			if dist < closestIntersectionDist {
 				closestIntersection = intersection
@@ -248,12 +249,12 @@ func (v *Viewshed) Sweep() {
 			}
 		}
 
-		if hasPassThrough && closestIntersectionDist > squareDistance(&v.Center, e.Point) {
+		if hasPassThrough && closestIntersectionDist > squareDistance(&v.Center, e.Coord) {
 			if e.begin {
 				v.ViewablePolygon = append(v.ViewablePolygon, closestIntersection)
-				v.ViewablePolygon = append(v.ViewablePolygon, e.Point)
+				v.ViewablePolygon = append(v.ViewablePolygon, e.Coord)
 			} else {
-				v.ViewablePolygon = append(v.ViewablePolygon, e.Point)
+				v.ViewablePolygon = append(v.ViewablePolygon, e.Coord)
 				v.ViewablePolygon = append(v.ViewablePolygon, closestIntersection)
 			}
 		} else {

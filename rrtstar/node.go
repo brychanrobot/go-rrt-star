@@ -1,9 +1,8 @@
 package rrtstar
 
 import (
-	"image"
-
 	"github.com/dhconnelly/rtreego"
+	"github.com/skelterjohn/geom"
 )
 
 var (
@@ -13,14 +12,14 @@ var (
 // Node Represents an RRT Node
 type Node struct {
 	parent         *Node
-	Point          image.Point
+	Point          geom.Coord
 	Children       []*Node
 	CumulativeCost float64
 	UnseenArea     float64
 }
 
 // AddChild adds a child and updates cost
-func (n *Node) AddChild(point image.Point, cost, unseenArea float64) *Node {
+func (n *Node) AddChild(point geom.Coord, cost, unseenArea float64) *Node {
 	newNode := Node{
 		parent:         n,
 		Point:          point,
