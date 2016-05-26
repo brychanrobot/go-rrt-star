@@ -11,8 +11,8 @@ var (
 
 // Node Represents an RRT Node
 type Node struct {
+	geom.Coord
 	parent         *Node
-	Point          geom.Coord
 	Children       []*Node
 	CumulativeCost float64
 	UnseenArea     float64
@@ -22,7 +22,7 @@ type Node struct {
 func (n *Node) AddChild(point geom.Coord, cost, unseenArea float64) *Node {
 	newNode := Node{
 		parent:         n,
-		Point:          point,
+		Coord:          point,
 		CumulativeCost: n.CumulativeCost + cost,
 		UnseenArea:     unseenArea}
 	n.Children = append(n.Children, &newNode)
@@ -61,7 +61,7 @@ func (n *Node) Rewire(newParent *Node, cost float64) {
 
 // Bounds returns empty rect with top left at the node point for rtreego
 func (n *Node) Bounds() *rtreego.Rect {
-	p := rtreego.Point{float64(n.Point.X), float64(n.Point.Y)}
+	p := rtreego.Point{n.Coord.X, n.Coord.Y}
 
 	return p.ToRect(tolerance)
 }

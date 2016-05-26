@@ -203,8 +203,8 @@ func drawCircle(point geom.Coord, radius float64, numSegments int, color colorfu
 	x := radius //we start at angle = 0
 	y := 0.0
 
-	cx := float64(point.X)
-	cy := float64(point.Y)
+	cx := point.X
+	cy := point.Y
 
 	gl.Begin(gl.LINE_LOOP)
 	gl.Color3d(color.R, color.G, color.B)
@@ -238,7 +238,7 @@ func drawPoint(point geom.Coord, radius float32, color colorful.Color) {
 
 	gl.Begin(gl.POINTS)
 	gl.Color3d(color.R, color.G, color.B)
-	gl.Vertex2d(float64(point.X), float64(point.Y))
+	gl.Vertex2d(point.X, point.Y)
 	gl.End()
 }
 
@@ -257,19 +257,19 @@ func drawLine(p1 geom.Coord, p2 geom.Coord, color colorful.Color) {
 	gl.Color3d(color.R, color.G, color.B)
 	gl.LineWidth(1)
 	gl.Begin(gl.LINES)
-	gl.Vertex2d(float64(p1.X), float64(p1.Y))
-	gl.Vertex2d(float64(p2.X), float64(p2.Y))
+	gl.Vertex2d(p1.X, p1.Y)
+	gl.Vertex2d(p2.X, p2.Y)
 	gl.End()
 }
 
 func drawTree(node *rrtstar.Node, lineHue float64) {
 	for _, child := range node.Children {
 		hue := int(lineHue+child.CumulativeCost/12.0) % 360
-		drawLine(node.Point, child.Point, colorful.Hsv(float64(hue), 1, 0.6))
+		drawLine(node.Coord, child.Coord, colorful.Hsv(float64(hue), 1, 0.6))
 		drawTree(child, lineHue)
 	}
 
-	drawPoint(node.Point, 2, colorful.Hsv(float64(int(lineHue+node.CumulativeCost/12.0)%360), 1, 0.6))
+	drawPoint(node.Coord, 2, colorful.Hsv(float64(int(lineHue+node.CumulativeCost/12.0)%360), 1, 0.6))
 }
 
 func drawNode(node *rrtstar.Node, lineHue float64) {
@@ -279,8 +279,8 @@ func drawNode(node *rrtstar.Node, lineHue float64) {
 		//drawLine(node.Point, child.Point, colorful.Hsv(float64(hue), 1, 0.6))
 		//drawTree(child, lineHue)
 		gl.Color3d(color.R, color.G, color.B)
-		gl.Vertex2d(float64(node.Point.X), float64(node.Point.Y))
-		gl.Vertex2d(float64(child.Point.X), float64(child.Point.Y))
+		gl.Vertex2d(node.Coord.X, node.Coord.Y)
+		gl.Vertex2d(child.Coord.X, child.Coord.Y)
 
 		drawNode(child, lineHue)
 	}
@@ -303,7 +303,7 @@ func drawPath(path []*geom.Coord, color colorful.Color, thickness float32) {
 	gl.Begin(gl.LINE_STRIP)
 	gl.Color3d(color.R, color.G, color.B)
 	for _, point := range path {
-		gl.Vertex2d(float64(point.X), float64(point.Y))
+		gl.Vertex2d(point.X, point.Y)
 	}
 	gl.End()
 
@@ -388,49 +388,11 @@ func drawWaldos(waldos []*rrtstar.Waldo, color colorful.Color) {
 		}
 		drawFloatPoint(waldo.X, waldo.Y, 30, color)
 		drawStringPoint(fmt.Sprintf("%d", waldo.Importance), waldo.Coord, Center, Center, colorful.Hsv(310, 1, 0))
-		//drawString(fmt.Sprintf("%d", waldo.Importance), waldo.X, waldo.Y, Center, Center, colorful.Hsv(310, 1, 0))
 	}
 }
-
-/*
-func drawString(value string, point geom.Coord, hAlign, vAlign Alignment, color colorful.Color) {
-	sw, sh := font.Metrics(value)
-
-	var topLeft geom.Coord
-	switch hAlign {
-	case Left:
-		topLeft.X = point.X
-	case Center:
-		topLeft.X = point.X - sw/2
-	case Right:
-		topLeft.X = point.X - sw
-	default:
-		topLeft.X = point.X
-	}
-
-	switch vAlign {
-	case Top:
-		topLeft.Y = point.Y
-	case Center:
-		topLeft.Y = point.Y - sh*2/5
-	case Bottom:
-		topLeft.Y = point.Y - sh
-	default:
-		topLeft.Y = point.Y
-	}
-
-	gl.Color4d(0, 0, 0, 0)
-	gl.Rectd(float64(topLeft.X), float64(topLeft.Y), float64(sw), float64(sh))
-
-	// Render the string.
-	gl.Color3d(color.R, color.G, color.B)
-
-	font.Printf(float32(topLeft.X), float32(topLeft.Y), value)
-}
-*/
 
 func drawStringPoint(value string, point geom.Coord, hAlign, vAlign Alignment, color colorful.Color) {
-	drawString(value, float64(point.X), float64(point.Y), hAlign, vAlign, color)
+	drawString(value, point.X, point.Y, hAlign, vAlign, color)
 }
 
 func drawString(value string, x, y float64, hAlign, vAlign Alignment, color colorful.Color) {

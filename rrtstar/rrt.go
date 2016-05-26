@@ -67,7 +67,7 @@ func (r *RrtStar) RenderUnseenCostMap(filename string) {
 }
 
 // NewRrtStar creates a new rrt Star
-func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegment float64, width int, height int,
+func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegment float64, width, height int,
 	startPoint, endPoint *geom.Coord) *RrtStar {
 
 	if startPoint == nil {
@@ -81,7 +81,7 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 		}
 	}
 
-	rrtRoot := &Node{parent: nil, Point: *startPoint, CumulativeCost: 0}
+	rrtRoot := &Node{parent: nil, Coord: *startPoint, CumulativeCost: 0}
 	rtree := rtreego.NewTree(2, 25, 50)
 	rtree.Insert(rrtRoot)
 
@@ -110,7 +110,7 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 }
 
 func (r *RrtStar) getBestNeighbor(point *geom.Coord, neighborhoodSize, unseenArea float64) (*Node, float64, []*Node, []float64) {
-	rtreePoint := rtreego.Point{float64(point.X), float64(point.Y)}
+	rtreePoint := rtreego.Point{point.X, point.Y}
 	spatialNeighbors := r.rtree.SearchIntersect(rtreePoint.ToRect(neighborhoodSize))
 	neighborCosts := []float64{}
 	neighbors := []*Node{}
@@ -118,9 +118,9 @@ func (r *RrtStar) getBestNeighbor(point *geom.Coord, neighborhoodSize, unseenAre
 	var bestNeighbor *Node
 	for _, spatialNeighbor := range spatialNeighbors {
 		neighbor := spatialNeighbor.(*Node)
-		if neighbor.Point != *point && !r.lineIntersectsObstacle(*point, neighbor.Point, 200) {
+		if neighbor.Coord != *point && !r.lineIntersectsObstacle(*point, neighbor.Coord, 200) {
 			neighbors = append(neighbors, neighbor)
-			cost := r.getCostKnownUnseenArea(&neighbor.Point, point, unseenArea)
+			cost := r.getCostKnownUnseenArea(&neighbor.Coord, point, unseenArea)
 			neighborCosts = append(neighborCosts, cost)
 			if cost < bestCost {
 				bestCost = cost
@@ -137,17 +137,17 @@ func (r *RrtStar) MoveStartPoint(dx, dy float64) {
 		r.StartPoint.X += dx
 		r.StartPoint.Y += dy
 		//log.Println(r.StartPoint)
-		newRoot := &Node{parent: nil, Point: *r.StartPoint, CumulativeCost: 0}
+		newRoot := &Node{parent: nil, Coord: *r.StartPoint, CumulativeCost: 0}
 		r.NumNodes++
-		newRoot.UnseenArea = r.getUnseenArea(&newRoot.Point)
+		newRoot.UnseenArea = r.getUnseenArea(&newRoot.Coord)
 		r.rtree.Insert(newRoot)
 
-		r.Root.Rewire(newRoot, r.getCostKnownUnseenArea(&newRoot.Point, &r.Root.Point, r.Root.UnseenArea))
+		r.Root.Rewire(newRoot, r.getCostKnownUnseenArea(&newRoot.Coord, &r.Root.Coord, r.Root.UnseenArea))
 		r.Root = newRoot
 
-		_, _, neighbors, neighborCosts := r.getBestNeighbor(&r.Root.Point, r.rewireNeighborhood, r.Root.UnseenArea)
+		_, _, neighbors, neighborCosts := r.getBestNeighbor(&r.Root.Coord, r.rewireNeighborhood, r.Root.UnseenArea)
 		for i, neighbor := range neighbors {
-			if !r.lineIntersectsObstacle(r.Root.Point, neighbor.Point, 200) {
+			if !r.lineIntersectsObstacle(r.Root.Coord, neighbor.Coord, 200) {
 				if neighborCosts[i]+r.Root.CumulativeCost < neighbor.CumulativeCost {
 					neighbor.Rewire(r.Root, neighborCosts[i])
 				}
@@ -171,8 +171,8 @@ func (r *RrtStar) Prune(minorAxisSquares int) {
 			cPoint := geom.Coord{X: float64(cx), Y: float64(cy)}
 			bestNeighbor, _, neighbors, _ := r.getBestNeighbor(&cPoint, float64(squareSize), 0)
 			for _, neighbor := range neighbors {
-				if neighbor != bestNeighbor && !r.lineIntersectsObstacle(bestNeighbor.Point, neighbor.Point, 200) {
-					cost := r.getCostKnownUnseenArea(&bestNeighbor.Point, &neighbor.Point, neighbor.UnseenArea)
+				if neighbor != bestNeighbor && !r.lineIntersectsObstacle(bestNeighbor.Coord, neighbor.Coord, 200) {
+					cost := r.getCostKnownUnseenArea(&bestNeighbor.Coord, &neighbor.Coord, neighbor.UnseenArea)
 					if cost+bestNeighbor.CumulativeCost < neighbor.CumulativeCost {
 						neighbor.Rewire(bestNeighbor, cost)
 					}
@@ -191,8 +191,8 @@ func (r *RrtStar) Prune(minorAxisSquares int) {
 }
 
 func (r *RrtStar) lineIntersectsObstacle(p1 geom.Coord, p2 geom.Coord, minObstacleColor uint8) bool {
-	dx := float64(float64(p2.X) - float64(p1.X))
-	dy := float64(float64(p2.Y) - float64(p1.Y))
+	dx := p2.X - p1.X
+	dy := p2.Y - p1.Y
 
 	m := 20000.0 // a big number for a vertical slope
 
@@ -200,22 +200,22 @@ func (r *RrtStar) lineIntersectsObstacle(p1 geom.Coord, p2 geom.Coord, minObstac
 		m = dy / dx
 	}
 
-	b := -m*float64(p1.X) + float64(p1.Y)
+	b := -m*p1.X + p1.Y
 
-	minX := int(math.Min(float64(p1.X), float64(p2.X)))
-	maxX := int(math.Max(float64(p1.X), float64(p2.X)))
+	minX := math.Min(p1.X, p2.X)
+	maxX := math.Max(p1.X, p2.X)
 	for ix := minX; ix <= maxX; ix++ {
-		y := m*float64(ix) + b
-		if r.obstacleImage.GrayAt(ix, int(y)).Y > minObstacleColor {
+		y := m*ix + b
+		if r.obstacleImage.GrayAt(int(ix), int(y)).Y > minObstacleColor {
 			return true
 		}
 	}
 
-	minY := int(math.Min(float64(p1.Y), float64(p2.Y)))
-	maxY := int(math.Max(float64(p1.Y), float64(p2.Y)))
+	minY := math.Min(p1.Y, p2.Y)
+	maxY := math.Max(p1.Y, p2.Y)
 	for iY := minY; iY <= maxY; iY++ {
-		x := (float64(iY) - b) / m
-		if r.obstacleImage.GrayAt(int(x), iY).Y > minObstacleColor {
+		x := (iY - b) / m
+		if r.obstacleImage.GrayAt(int(x), int(iY)).Y > minObstacleColor {
 			return true
 		}
 	}
@@ -225,7 +225,7 @@ func (r *RrtStar) lineIntersectsObstacle(p1 geom.Coord, p2 geom.Coord, minObstac
 
 func (r *RrtStar) refreshBestPath() {
 	if r.endNode == nil {
-		rtreeEndPoint := rtreego.Point{float64(r.EndPoint.X), float64(r.EndPoint.Y)}
+		rtreeEndPoint := rtreego.Point{r.EndPoint.X, r.EndPoint.Y}
 		neighbors := r.rtree.SearchIntersect(rtreeEndPoint.ToRect(2 * r.maxSegment))
 
 		_, unseenArea := r.getCost(r.StartPoint, r.EndPoint)
@@ -234,8 +234,8 @@ func (r *RrtStar) refreshBestPath() {
 		var bestNeighbor *Node
 		for _, neighborSpatial := range neighbors {
 			neighbor := neighborSpatial.(*Node)
-			cost := r.getCostKnownUnseenArea(r.EndPoint, &neighbor.Point, unseenArea)
-			if cost < bestCost && !r.lineIntersectsObstacle(*r.EndPoint, neighbor.Point, 200) {
+			cost := r.getCostKnownUnseenArea(r.EndPoint, &neighbor.Coord, unseenArea)
+			if cost < bestCost && !r.lineIntersectsObstacle(*r.EndPoint, neighbor.Coord, 200) {
 				bestCost = cost
 				bestNeighbor = neighbor
 			}
@@ -256,13 +256,13 @@ func (r *RrtStar) traceBestPath() {
 	r.BestPath = r.BestPath[:0]
 	currentNode := r.endNode
 	for currentNode != nil {
-		r.BestPath = append(r.BestPath, &currentNode.Point)
+		r.BestPath = append(r.BestPath, &currentNode.Coord)
 		currentNode = currentNode.parent
 	}
 }
 
 func (r *RrtStar) getViewArea(point *geom.Coord) float64 {
-	r.Viewshed.UpdateCenterLocation(float64(point.X), float64(point.Y))
+	r.Viewshed.UpdateCenterLocation(point.X, point.Y)
 	r.Viewshed.Sweep()
 	return viewshed.Area2DPolygon(r.Viewshed.ViewablePolygon)
 }
@@ -286,18 +286,18 @@ func (r *RrtStar) getCostKnownUnseenArea(neighbor *geom.Coord, point *geom.Coord
 func (r *RrtStar) sampleRrtStarWithNewNode() {
 	point := randomPoint(r.width, r.height)
 
-	nnSpatial := r.rtree.NearestNeighbor(rtreego.Point{float64(point.X), float64(point.Y)})
+	nnSpatial := r.rtree.NearestNeighbor(rtreego.Point{point.X, point.Y})
 	nn := nnSpatial.(*Node)
 
 	//cost, unseenArea := r.getCost(&nn.Point, &point)
-	dist := euclideanDistance(&nn.Point, &point)
+	dist := euclideanDistance(&nn.Coord, &point)
 
 	//log.Println(dist)
 
 	if dist > r.maxSegment {
-		angle := angleBetweenPoints(nn.Point, point)
-		x := r.maxSegment*math.Cos(angle) + nn.Point.X
-		y := r.maxSegment*math.Sin(angle) + nn.Point.Y
+		angle := angleBetweenPoints(nn.Coord, point)
+		x := r.maxSegment*math.Cos(angle) + nn.Coord.X
+		y := r.maxSegment*math.Sin(angle) + nn.Coord.Y
 		point = geom.Coord{X: x, Y: y}
 	}
 
@@ -314,7 +314,7 @@ func (r *RrtStar) sampleRrtStarWithNewNode() {
 
 			for i, neighbor := range neighbors {
 				//neighbor := neighborInterface.(*Node)
-				if neighbor != bestNeighbor && !r.lineIntersectsObstacle(newNode.Point, neighbor.Point, 200) {
+				if neighbor != bestNeighbor && !r.lineIntersectsObstacle(newNode.Coord, neighbor.Coord, 200) {
 					if neighborCosts[i]+newNode.CumulativeCost < neighbor.CumulativeCost {
 						neighbor.Rewire(newNode, neighborCosts[i])
 					}
@@ -331,8 +331,8 @@ func (r *RrtStar) sampleRrtStarWithoutNewNode() {
 	point := randomPoint(r.width, r.height)
 	bestNeighbor, _, neighbors, _ := r.getBestNeighbor(&point, float64(r.rewireNeighborhood), 0)
 	for _, neighbor := range neighbors {
-		if neighbor != bestNeighbor && !r.lineIntersectsObstacle(bestNeighbor.Point, neighbor.Point, 200) {
-			cost := r.getCostKnownUnseenArea(&bestNeighbor.Point, &neighbor.Point, neighbor.UnseenArea)
+		if neighbor != bestNeighbor && !r.lineIntersectsObstacle(bestNeighbor.Coord, neighbor.Coord, 200) {
+			cost := r.getCostKnownUnseenArea(&bestNeighbor.Coord, &neighbor.Coord, neighbor.UnseenArea)
 			if cost+bestNeighbor.CumulativeCost < neighbor.CumulativeCost {
 				neighbor.Rewire(bestNeighbor, cost)
 			}
