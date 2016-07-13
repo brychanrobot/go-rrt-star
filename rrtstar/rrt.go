@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/brychanrobot/go-halton"
 	"github.com/brychanrobot/rrt-star/viewshed"
 	"github.com/dhconnelly/rtreego"
 	"github.com/gonum/matrix/mat64"
@@ -31,6 +32,8 @@ type RrtStar struct {
 	mapArea            float64
 	IsAddingNodes      bool
 	NumNodes           uint64
+	haltonX            *halton.HaltonSampler
+	haltonY            *halton.HaltonSampler
 }
 
 const (
@@ -97,7 +100,9 @@ func NewRrtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 		StartPoint:         startPoint,
 		EndPoint:           endPoint,
 		mapArea:            float64(width * height),
-		NumNodes:           1}
+		NumNodes:           1,
+		haltonX:            halton.NewHaltonSampler(19),
+		haltonY:            halton.NewHaltonSampler(23)}
 
 	rrtStar.Viewshed.LoadMap(float64(width), float64(height), 0, obstacleRects, nil)
 	//rrtStar.Viewshed.UpdateCenterLocation(float64(startPoint.X), float64(startPoint.Y))
@@ -188,6 +193,12 @@ func (r *RrtStar) Prune(minorAxisSquares int) {
 			}
 		}
 	}
+}
+
+func (r *RrtStar) nextHaltonPoint(width, height int) geom.Coord {
+	x := r.haltonX.Next() * float64(width)
+	y := r.haltonY.Next() * float64(height)
+	return geom.Coord{X: x, Y: y}
 }
 
 func (r *RrtStar) lineIntersectsObstacle(p1 geom.Coord, p2 geom.Coord, minObstacleColor uint8) bool {
@@ -284,7 +295,7 @@ func (r *RrtStar) getCostKnownUnseenArea(neighbor *geom.Coord, point *geom.Coord
 }
 
 func (r *RrtStar) sampleRrtStarWithNewNode() {
-	point := randomPoint(r.width, r.height)
+	point := r.nextHaltonPoint(r.width, r.height)
 
 	nnSpatial := r.rtree.NearestNeighbor(rtreego.Point{point.X, point.Y})
 	nn := nnSpatial.(*Node)
@@ -328,7 +339,7 @@ func (r *RrtStar) sampleRrtStarWithNewNode() {
 }
 
 func (r *RrtStar) sampleRrtStarWithoutNewNode() {
-	point := randomPoint(r.width, r.height)
+	point := r.nextHaltonPoint(r.width, r.height)
 	bestNeighbor, _, neighbors, _ := r.getBestNeighbor(&point, float64(r.rewireNeighborhood), 0)
 	for _, neighbor := range neighbors {
 		if neighbor != bestNeighbor && !r.lineIntersectsObstacle(bestNeighbor.Coord, neighbor.Coord, 200) {
