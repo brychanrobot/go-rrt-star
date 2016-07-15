@@ -19,6 +19,7 @@ type FmtStar struct {
 	obstacleImage      *image.Gray
 	obstacleRects      []*geom.Rect
 	rtree              *rtreego.Rtree
+	rtreeOpen          *rtreego.Rtree
 	Root               *Node
 	maxSegment         float64
 	rewireNeighborhood float64
@@ -92,6 +93,9 @@ func NewFmtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 	rtree := rtreego.NewTree(2, 25, 50)
 	rtree.Insert(fmtRoot)
 
+	rtreeOpen := rtreego.NewTree(2, 25, 50)
+	rtreeOpen.Insert(fmtRoot)
+
 	endNode := &Node{parent: nil, Coord: *endPoint, CumulativeCost: 0}
 	rtree.Insert(endNode)
 
@@ -99,6 +103,7 @@ func NewFmtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 		obstacleImage:      obstacleImage,
 		obstacleRects:      obstacleRects,
 		rtree:              rtree,
+		rtreeOpen:          rtreeOpen,
 		Root:               fmtRoot,
 		maxSegment:         maxSegment,
 		rewireNeighborhood: maxSegment * 6,
@@ -160,7 +165,7 @@ func (f *FmtStar) getBestNeighbor(point *geom.Coord, neighborhoodSize, unseenAre
 
 func (f *FmtStar) getBestOpenNeighbor(point *geom.Coord, neighborhoodSize, unseenArea float64) (*Node, float64, []*Node, []float64) {
 	rtreePoint := rtreego.Point{point.X, point.Y}
-	spatialNeighbors := f.rtree.SearchIntersect(rtreePoint.ToRect(neighborhoodSize))
+	spatialNeighbors := f.rtreeOpen.SearchIntersect(rtreePoint.ToRect(neighborhoodSize))
 	neighborCosts := []float64{}
 	neighbors := []*Node{}
 	bestCost := math.MaxFloat64
@@ -168,15 +173,13 @@ func (f *FmtStar) getBestOpenNeighbor(point *geom.Coord, neighborhoodSize, unsee
 	var bestNeighbor *Node
 	for _, spatialNeighbor := range spatialNeighbors {
 		neighbor := spatialNeighbor.(*Node)
-		if neighbor.Status == Open {
-			neighbors = append(neighbors, neighbor)
-			cost := f.getCostKnownUnseenArea(&neighbor.Coord, point, unseenArea)
-			neighborCosts = append(neighborCosts, cost)
-			if cost+neighbor.CumulativeCost < bestCumulativeCost {
-				bestCost = cost
-				bestCumulativeCost = cost + neighbor.CumulativeCost
-				bestNeighbor = neighbor
-			}
+		neighbors = append(neighbors, neighbor)
+		cost := f.getCostKnownUnseenArea(&neighbor.Coord, point, unseenArea)
+		neighborCosts = append(neighborCosts, cost)
+		if cost+neighbor.CumulativeCost < bestCumulativeCost {
+			bestCost = cost
+			bestCumulativeCost = cost + neighbor.CumulativeCost
+			bestNeighbor = neighbor
 		}
 	}
 
@@ -372,10 +375,12 @@ func (f *FmtStar) sampleFmtStar() {
 				bestParent.AddChild(neighbor, bestCost, unseenArea)
 				neighbor.Status = Open
 				f.open = append(f.open, neighbor)
+				f.rtreeOpen.Insert(neighbor)
 				f.NumNodes++
 			}
 		}
 	}
+	f.rtreeOpen.Delete(bestOpenNode)
 	bestOpenNode.Status = Closed
 
 	//fmt.Printf("b:%d, a:%d, n:%d, c:%d\n", lenBefore, lenAfter, len(spatialNeighbors), len(bestOpenNode.Children))
