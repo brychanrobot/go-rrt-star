@@ -253,7 +253,7 @@ func (r *RrtStar) refreshBestPath() {
 		}
 
 		if bestNeighbor != nil {
-			r.endNode = bestNeighbor.AddChild(*r.EndPoint, bestCost, unseenArea)
+			r.endNode = bestNeighbor.AddAndCreateChild(*r.EndPoint, bestCost, unseenArea)
 			r.NumNodes++
 			r.rtree.Insert(r.endNode)
 			r.traceBestPath()
@@ -319,7 +319,7 @@ func (r *RrtStar) sampleRrtStarWithNewNode() {
 
 		if bestNeighbor != nil { //!r.lineIntersectsObstacle(point, bestNeighbor.Point, 200) {
 			//unseenArea := (r.mapArea - r.getViewArea(&point)) / r.mapArea
-			newNode := bestNeighbor.AddChild(point, bestCost, unseenArea)
+			newNode := bestNeighbor.AddAndCreateChild(point, bestCost, unseenArea)
 			r.NumNodes++
 			r.rtree.Insert(newNode)
 

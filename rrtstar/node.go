@@ -9,6 +9,14 @@ var (
 	tolerance = 0.01
 )
 
+type Status uint32
+
+const (
+	Unvisited Status = iota
+	Open
+	Closed
+)
+
 // Node Represents an RRT Node
 type Node struct {
 	geom.Coord
@@ -16,10 +24,11 @@ type Node struct {
 	Children       []*Node
 	CumulativeCost float64
 	UnseenArea     float64
+	Status         Status
 }
 
 // AddChild adds a child and updates cost
-func (n *Node) AddChild(point geom.Coord, cost, unseenArea float64) *Node {
+func (n *Node) AddAndCreateChild(point geom.Coord, cost, unseenArea float64) *Node {
 	newNode := Node{
 		parent:         n,
 		Coord:          point,
@@ -28,6 +37,15 @@ func (n *Node) AddChild(point geom.Coord, cost, unseenArea float64) *Node {
 	n.Children = append(n.Children, &newNode)
 
 	return &newNode
+}
+
+func (n *Node) AddChild(child *Node, cost, unseenArea float64) {
+	child.CumulativeCost = n.CumulativeCost + cost
+	child.UnseenArea = unseenArea
+	n.Children = append(n.Children, child)
+	child.parent = n
+
+	//fmt.Printf("new child with cost %f\n", child.CumulativeCost)
 }
 
 // RemoveChild removes a child from a node

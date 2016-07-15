@@ -16,6 +16,7 @@ import (
 
 	"github.com/brychanrobot/rrt-star/rrtstar"
 	"github.com/brychanrobot/rrt-star/viewshed"
+	"github.com/chrisport/go-stopwatch/stopwatch"
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
@@ -34,6 +35,7 @@ var (
 	obstaclesTexture uint32
 	obstacleRects    []*geom.Rect
 	rrtStar          *rrtstar.RrtStar
+	fmtStar          *rrtstar.FmtStar
 	frames           []*image.NRGBA
 	frameCount       int
 
@@ -438,20 +440,25 @@ func display(iteration uint64, showTree, showViewshed, showPath, showIterationCo
 	drawObstacles(obstacleRects, colorful.Hsv(210, 1, 0.6))
 
 	if showViewshed {
-		drawViewshed(rrtStar.Viewshed.ViewablePolygon, &rrtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
+		//drawViewshed(rrtStar.Viewshed.ViewablePolygon, &rrtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
+		drawViewshed(fmtStar.Viewshed.ViewablePolygon, &fmtStar.Viewshed.Center, colorful.Hsv(330, 1, 1), 3)
 	}
 
 	if showTree {
-		drawTreeFaster(rrtStar.Root, 250)
+		//drawTreeFaster(rrtStar.Root, 250)
+		drawTreeFaster(fmtStar.Root, 250)
 	}
 
 	drawWaldos(waldos, colorful.Hsv(290, 1, 1))
 
 	if showPath {
-		drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
+		//drawPath(rrtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
+		drawPath(fmtStar.BestPath, colorful.Hsv(100, 1, 1), 3)
 
-		drawPoint(*rrtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
-		drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
+		//drawPoint(*rrtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
+		//drawPoint(*rrtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
+		drawPoint(*fmtStar.StartPoint, 20, colorful.Hsv(20, 1, 1))
+		drawPoint(*fmtStar.EndPoint, 20, colorful.Hsv(60, 1, 1))
 	}
 
 	if showIterationCount {
@@ -475,7 +482,7 @@ func main() {
 	numObstacles := flag.Int("obstacles", 15, "sets the number of obstacles generated")
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
 	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
-	iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
+	//iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
 	record := flag.Bool("r", false, "records the session")
 	renderCostmap := flag.Bool("cm", false, "renders a costmap before executing")
 	showPath := flag.Bool("path", true, "shows the path and endpoints")
@@ -536,10 +543,12 @@ func main() {
 		//obstacles := readImageGray("dragon.png")
 		var obstacleImage *image.Gray
 		obstacleRects, obstacleImage = rrtstar.GenerateObstacles(width, height, *numObstacles)
-		rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 20, width, height, nil, nil)
+		//rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 20, width, height, nil, nil)
+		fmtStar = rrtstar.NewFmtStar(obstacleImage, obstacleRects, 20, width, height, nil, nil)
 
 		if *renderCostmap {
-			rrtStar.RenderUnseenCostMap("unseen.png")
+			//rrtStar.RenderUnseenCostMap("unseen.png")
+			fmtStar.RenderUnseenCostMap("unseen.png")
 		}
 
 		for i := 0; i < *numWaldos; i++ {
@@ -550,17 +559,24 @@ func main() {
 		//obstaclesTexture = getTextureGray(obstacleImage)
 		//defer gl.DeleteTextures(1, &obstaclesTexture)
 		reshape(window, width, height)
+
+		sw := stopwatch.NewStopwatch()
 		for i := 0; !window.ShouldClose(); i++ {
 
 			if i < *iterations {
-				rrtStar.SampleRrtStar()
-				if i%*iterationsPerFrame == 0 {
-					rrtStar.MoveStartPoint(moveX, moveY)
+				//rrtStar.SampleRrtStar()
+				fmtStar.SampleFmtStar()
+				//if i%*iterationsPerFrame == 0 {
+				if sw.Get().Seconds() > 0.016 {
+					//rrtStar.MoveStartPoint(moveX, moveY)
+					fmtStar.MoveStartPoint(moveX, moveY)
 
 					for _, waldo := range waldos {
 						waldo.MoveWaldo()
 					}
 
+					fmt.Println(sw.Get().Seconds())
+					sw.Restart()
 					invalidate()
 				}
 			} else if *isLooping {
@@ -569,13 +585,17 @@ func main() {
 
 			if redraw {
 				//log.Println("redrawing", i)
-				if *showViewshed && (cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y) {
-					rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
-					rrtStar.Viewshed.Sweep()
+				//if *showViewshed && (cursorX != rrtStar.Viewshed.Center.X || cursorY != -rrtStar.Viewshed.Center.Y) {
+				if *showViewshed && (cursorX != fmtStar.Viewshed.Center.X || cursorY != -fmtStar.Viewshed.Center.Y) {
+					//rrtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
+					//rrtStar.Viewshed.Sweep()
+					fmtStar.Viewshed.UpdateCenterLocation(cursorX, cursorY)
+					fmtStar.Viewshed.Sweep()
 					//fmt.Printf("\rarea: %.0f", viewshed.Area2DPolygon(rrtStar.Viewshed.ViewablePolygon))
 				}
 
-				display(rrtStar.NumNodes, *showTree, *showViewshed, *showPath, *showIterationCount)
+				//display(rrtStar.NumNodes, *showTree, *showViewshed, *showPath, *showIterationCount)
+				display(fmtStar.NumNodes, *showTree, *showViewshed, *showPath, *showIterationCount)
 				window.SwapBuffers()
 				redraw = false
 
@@ -620,7 +640,8 @@ func saveFrame(width int, height int, toFile bool) {
 func onChar(w *glfw.Window, char rune) {
 	//log.Println(char)
 	if char == 'p' {
-		rrtStar.Prune(30)
+		//rrtStar.Prune(30)
+		fmtStar.Prune(30)
 	}
 }
 
