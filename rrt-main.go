@@ -544,7 +544,7 @@ func main() {
 		var obstacleImage *image.Gray
 		obstacleRects, obstacleImage = rrtstar.GenerateObstacles(width, height, *numObstacles)
 		//rrtStar = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 20, width, height, nil, nil)
-		fmtStar = rrtstar.NewFmtStar(obstacleImage, obstacleRects, 20, width, height, nil, nil)
+		fmtStar = rrtstar.NewFmtStar(obstacleImage, obstacleRects, 10, width, height, nil, nil)
 
 		if *renderCostmap {
 			//rrtStar.RenderUnseenCostMap("unseen.png")
@@ -575,7 +575,7 @@ func main() {
 						waldo.MoveWaldo()
 					}
 
-					fmt.Println(sw.Get().Seconds())
+					//fmt.Println(sw.Get().Seconds())
 					sw.Restart()
 					invalidate()
 				}
