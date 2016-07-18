@@ -481,7 +481,7 @@ func main() {
 	isLooping := flag.Bool("loop", false, "will loop with random obstacles if set")
 	numObstacles := flag.Int("obstacles", 15, "sets the number of obstacles generated")
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
-	iterations := flag.Int("i", 25000, "sets the number of iterations. default to 25000")
+	iterations := flag.Int("i", 1000000, "sets the number of iterations. default to 1000000")
 	//iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
 	record := flag.Bool("r", false, "records the session")
 	renderCostmap := flag.Bool("cm", false, "renders a costmap before executing")
@@ -489,7 +489,8 @@ func main() {
 	showIterationCount := flag.Bool("count", true, "shows the iteration count")
 	showTree := flag.Bool("tree", false, "draws the tree")
 	showViewshed := flag.Bool("viewshed", false, "draws the viewshed at the mouse cursor location")
-	numWaldos := flag.Int("waldos", 2, "the number of waldos to simulate")
+	numWaldos := flag.Int("waldos", 0, "the number of waldos to simulate")
+	//startWithFmt := flag.Bool("fmt", false, "seeds the tree using FMT")
 	flag.Parse()
 
 	glfwErr := glfw.Init()
@@ -565,9 +566,9 @@ func main() {
 
 			if i < *iterations {
 				//rrtStar.SampleRrtStar()
-				fmtStar.SampleFmtStar()
+				fmtStar.Sample()
 				//if i%*iterationsPerFrame == 0 {
-				if sw.Get().Seconds() > 0.016 {
+				if sw.Get().Seconds() > 0.050 {
 					//rrtStar.MoveStartPoint(moveX, moveY)
 					fmtStar.MoveStartPoint(moveX, moveY)
 

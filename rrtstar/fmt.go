@@ -128,7 +128,7 @@ func NewFmtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 	for n := uint64(0); n < nodeThreshold; n++ {
 		point := fmtStar.nextHaltonPoint(width, height)
 		if fmtStar.obstacleImage.GrayAt(int(point.X), int(point.Y)).Y < 50 {
-			node := &Node{parent: nil, Coord: point, CumulativeCost: 0}
+			node := &Node{parent: nil, Coord: point, CumulativeCost: math.MaxFloat64}
 			rtree.Insert(node)
 		}
 	}
@@ -191,7 +191,7 @@ func (f *FmtStar) MoveStartPoint(dx, dy float64) {
 		f.StartPoint.X += dx
 		f.StartPoint.Y += dy
 		//log.Println(f.StartPoint)
-		newRoot := &Node{parent: nil, Coord: *f.StartPoint, CumulativeCost: 0}
+		newRoot := &Node{parent: nil, Coord: *f.StartPoint, CumulativeCost: 0, Status: Closed}
 		f.NumNodes++
 		newRoot.UnseenArea = f.getUnseenArea(&newRoot.Coord)
 		f.rtree.Insert(newRoot)
@@ -390,7 +390,7 @@ func (f *FmtStar) sampleFmtStarWithRewire() {
 	point := f.nextHaltonPoint(f.width, f.height)
 	bestNeighbor, _, neighbors, _ := f.getBestNeighbor(&point, float64(f.rewireNeighborhood), 0)
 	for _, neighbor := range neighbors {
-		if neighbor != bestNeighbor && !f.lineIntersectsObstacle(bestNeighbor.Coord, neighbor.Coord, 200) {
+		if bestNeighbor != nil && neighbor != bestNeighbor && !f.lineIntersectsObstacle(bestNeighbor.Coord, neighbor.Coord, 200) {
 			cost := f.getCostKnownUnseenArea(&bestNeighbor.Coord, &neighbor.Coord, neighbor.UnseenArea)
 			if cost+bestNeighbor.CumulativeCost < neighbor.CumulativeCost {
 				neighbor.Rewire(bestNeighbor, cost)
@@ -400,7 +400,7 @@ func (f *FmtStar) sampleFmtStarWithRewire() {
 }
 
 // SampleFmtStar performs one iteration of rrt*
-func (f *FmtStar) SampleFmtStar() {
+func (f *FmtStar) Sample() {
 	f.IsAddingNodes = len(f.open) != 0 //f.NumNodes < r.nodeThreshold
 	if f.IsAddingNodes {
 		f.sampleFmtStar()

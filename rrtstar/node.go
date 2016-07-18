@@ -42,8 +42,8 @@ func (n *Node) AddAndCreateChild(point geom.Coord, cost, unseenArea float64) *No
 func (n *Node) AddChild(child *Node, cost, unseenArea float64) {
 	child.CumulativeCost = n.CumulativeCost + cost
 	child.UnseenArea = unseenArea
-	n.Children = append(n.Children, child)
 	child.parent = n
+	n.Children = append(n.Children, child)
 
 	//fmt.Printf("new child with cost %f\n", child.CumulativeCost)
 }
