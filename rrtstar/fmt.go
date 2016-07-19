@@ -44,6 +44,35 @@ const (
 //distanceK = 1.0
 )
 
+//Getters
+func (f *FmtStar) GetRoot() *Node {
+	return f.Root
+}
+
+func (f *FmtStar) GetStartPoint() *geom.Coord {
+	return f.StartPoint
+}
+
+func (f *FmtStar) GetEndPoint() *geom.Coord {
+	return f.EndPoint
+}
+
+func (f *FmtStar) GetBestPath() []*geom.Coord {
+	return f.BestPath
+}
+
+func (f *FmtStar) GetViewshed() *viewshed.Viewshed {
+	return &f.Viewshed
+}
+
+func (f *FmtStar) GetIsAddingNodes() bool {
+	return f.IsAddingNodes
+}
+
+func (f *FmtStar) GetNumNodes() uint64 {
+	return f.NumNodes
+}
+
 func (f *FmtStar) RenderUnseenCostMap(filename string) {
 	costMap := mat64.NewDense(f.height, f.width, nil)
 	costMapImg := image.NewGray(image.Rect(0, 0, f.width, f.height))

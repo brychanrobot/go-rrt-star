@@ -1,13 +1,20 @@
 package rrtstar
 
-/*
-type Planner interface {
-  Root               *Node
-  Viewshed           viewshed.Viewshed
-  BestPath           []*geom.Coord
-  IsAddingNodes      bool
-	NumNodes           uint64
+import (
+	"github.com/brychanrobot/rrt-star/viewshed"
+	"github.com/skelterjohn/geom"
+)
 
-  Sample()
+type Planner interface {
+	GetRoot() *Node
+	GetStartPoint() *geom.Coord
+	GetEndPoint() *geom.Coord
+	GetBestPath() []*geom.Coord
+	GetViewshed() *viewshed.Viewshed
+	GetIsAddingNodes() bool
+	GetNumNodes() uint64
+
+	Sample()
+	RenderUnseenCostMap(filename string)
+	MoveStartPoint(dx, dy float64)
 }
-*/

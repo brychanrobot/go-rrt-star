@@ -75,7 +75,7 @@ func (w *Waldo) followRrtPath() {
 			go func() {
 				rrtStar := NewRrtStar(w.obstacleImage, w.obstacleRects, 30, int(w.mapBounds.Width()), int(w.mapBounds.Height()), &w.Coord, nil)
 				for len(rrtStar.BestPath) == 0 {
-					rrtStar.SampleRrtStar()
+					rrtStar.Sample()
 				}
 				w.CurrentPath = rrtStar.BestPath[:len(rrtStar.BestPath)-1]
 				w.Replanning = false

@@ -41,6 +41,35 @@ const (
 	distanceK = 1.0
 )
 
+//Getters
+func (r *RrtStar) GetRoot() *Node {
+	return r.Root
+}
+
+func (r *RrtStar) GetStartPoint() *geom.Coord {
+	return r.StartPoint
+}
+
+func (r *RrtStar) GetEndPoint() *geom.Coord {
+	return r.EndPoint
+}
+
+func (r *RrtStar) GetBestPath() []*geom.Coord {
+	return r.BestPath
+}
+
+func (r *RrtStar) GetViewshed() *viewshed.Viewshed {
+	return &r.Viewshed
+}
+
+func (r *RrtStar) GetIsAddingNodes() bool {
+	return r.IsAddingNodes
+}
+
+func (r *RrtStar) GetNumNodes() uint64 {
+	return r.NumNodes
+}
+
 func (r *RrtStar) RenderUnseenCostMap(filename string) {
 	costMap := mat64.NewDense(r.height, r.width, nil)
 	costMapImg := image.NewGray(image.Rect(0, 0, r.width, r.height))
@@ -352,7 +381,7 @@ func (r *RrtStar) sampleRrtStarWithoutNewNode() {
 }
 
 // SampleRrtStar performs one iteration of rrt*
-func (r *RrtStar) SampleRrtStar() {
+func (r *RrtStar) Sample() {
 	nodeRatio := uint64(0.01 * float64(r.width*r.height))
 	r.IsAddingNodes = r.NumNodes < nodeRatio
 	if r.IsAddingNodes {
