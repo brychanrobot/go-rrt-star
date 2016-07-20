@@ -417,7 +417,7 @@ func (f *FmtStar) sampleFmtStar() {
 
 func (f *FmtStar) sampleFmtStarWithRewire() {
 	point := f.nextHaltonPoint(f.width, f.height)
-	bestNeighbor, _, neighbors, _ := f.getBestNeighbor(&point, float64(f.rewireNeighborhood), 0)
+	bestNeighbor, _, neighbors, _ := f.getBestNeighbor(&point, float64(f.rewireNeighborhood*1.5), 0)
 	for _, neighbor := range neighbors {
 		if bestNeighbor != nil && neighbor != bestNeighbor && !f.lineIntersectsObstacle(bestNeighbor.Coord, neighbor.Coord, 200) {
 			cost := f.getCostKnownUnseenArea(&bestNeighbor.Coord, &neighbor.Coord, neighbor.UnseenArea)

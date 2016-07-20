@@ -37,7 +37,7 @@ type RrtStar struct {
 }
 
 const (
-	unseenK   = 100.0
+	unseenK   = 0.0 //100.0
 	distanceK = 1.0
 )
 
@@ -149,6 +149,7 @@ func (r *RrtStar) getBestNeighbor(point *geom.Coord, neighborhoodSize, unseenAre
 	neighborCosts := []float64{}
 	neighbors := []*Node{}
 	bestCost := math.MaxFloat64
+	bestCumulativeCost := math.MaxFloat64
 	var bestNeighbor *Node
 	for _, spatialNeighbor := range spatialNeighbors {
 		neighbor := spatialNeighbor.(*Node)
@@ -156,8 +157,9 @@ func (r *RrtStar) getBestNeighbor(point *geom.Coord, neighborhoodSize, unseenAre
 			neighbors = append(neighbors, neighbor)
 			cost := r.getCostKnownUnseenArea(&neighbor.Coord, point, unseenArea)
 			neighborCosts = append(neighborCosts, cost)
-			if cost < bestCost {
+			if cost+neighbor.CumulativeCost < bestCumulativeCost {
 				bestCost = cost
+				bestCumulativeCost = cost + neighbor.CumulativeCost
 				bestNeighbor = neighbor
 			}
 		}
