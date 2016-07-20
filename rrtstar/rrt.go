@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/brychanrobot/go-halton"
-	"github.com/brychanrobot/rrt-star/viewshed"
+	"github.com/brychanrobot/go-rrt-star/viewshed"
 	"github.com/dhconnelly/rtreego"
 	"github.com/gonum/matrix/mat64"
 	"github.com/skelterjohn/geom"

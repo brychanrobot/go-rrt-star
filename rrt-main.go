@@ -14,8 +14,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/brychanrobot/rrt-star/rrtstar"
-	"github.com/brychanrobot/rrt-star/viewshed"
+	"github.com/brychanrobot/go-rrt-star/rrtstar"
+	"github.com/brychanrobot/go-rrt-star/viewshed"
 	"github.com/chrisport/go-stopwatch/stopwatch"
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v2.1/gl"

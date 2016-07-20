@@ -1,7 +1,7 @@
 package rrtstar
 
 import (
-	"github.com/brychanrobot/rrt-star/viewshed"
+	"github.com/brychanrobot/go-rrt-star/viewshed"
 	"github.com/skelterjohn/geom"
 )
 
