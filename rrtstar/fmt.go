@@ -59,8 +59,8 @@ func NewFmtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 			mapArea:            float64(width * height),
 			nodeThreshold:      nodeThreshold,
 			NumNodes:           1,
-			haltonX:            halton.NewHaltonSampler(19),
-			haltonY:            halton.NewHaltonSampler(23),
+			haltonX:            halton.NewHaltonSampler(2),
+			haltonY:            halton.NewHaltonSampler(3),
 			unseenAreaMap:      make(map[geom.Coord]float64)},
 
 		rtreeOpen: rtreeOpen}
