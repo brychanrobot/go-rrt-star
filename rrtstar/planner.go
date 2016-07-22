@@ -129,11 +129,18 @@ func (p *PlannerBase) getViewArea(point *geom.Coord) float64 {
 }
 
 func (p *PlannerBase) getUnseenArea(point *geom.Coord) float64 {
-	return (p.mapArea - p.getViewArea(point)) / p.mapArea
+	//return (p.mapArea - p.getViewArea(point)) / p.mapArea
+	value := p.unseenAreaMap[*point]
+	if value == 0 {
+		value = (p.mapArea - p.getViewArea(point)) / p.mapArea
+		p.unseenAreaMap[*point] = value
+	}
+
+	return value
 }
 
-func (p *PlannerBase) getEdgeUnseenArea(p1, p2 *geom.Coord) float64 {
-	angle := angleBetweenPoints(*p1, *p2)
+func (p *PlannerBase) getEdgeUnseenArea(p1, p2 *geom.Coord) (float64, float64) {
+	/*angle := angleBetweenPoints(*p1, *p2)
 	dist := euclideanDistance(p1, p2)
 	sum := 0.0
 	for i := 5.0; i < dist; i += 5 {
@@ -149,12 +156,23 @@ func (p *PlannerBase) getEdgeUnseenArea(p1, p2 *geom.Coord) float64 {
 		sum += value
 	}
 	return sum
+	*/
+
+	dist := euclideanDistance(p1, p2)
+
+	a1 := p.getUnseenArea(p1)
+	//am := p.getUnseenArea(&geom.Coord{X: float64(int((p1.X + p2.X) / 2.0)), Y: float64(int((p1.Y + p2.Y) / 2.0))})
+	a2 := p.getUnseenArea(p2)
+
+	unseenArea := ((a1 + a2) / 2.0) * dist
+
+	return unseenArea, dist
 }
 
 func (p *PlannerBase) getCost(neighbor *geom.Coord, point *geom.Coord) float64 {
 
-	unseenArea := p.getEdgeUnseenArea(neighbor, point)
-	dist := euclideanDistance(neighbor, point)
+	unseenArea, dist := p.getEdgeUnseenArea(neighbor, point)
+	//dist := euclideanDistance(neighbor, point)
 	return dist*distanceK + unseenArea*unseenK
 }
 

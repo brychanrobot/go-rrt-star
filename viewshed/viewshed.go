@@ -62,18 +62,6 @@ func (v *Viewshed) LoadMap(width float64, height float64, margin float64, blocks
 	v.endpoints = v.endpoints[:0]
 
 	v.loadEdgeOfMap(width, height, margin)
-	/*
-		for _, block := range blocks {
-			x := block.x
-			y := block.y
-			r := block.r
-
-			v.addSegment(x-r, y-r, x-r, y+r)
-			v.addSegment(x-r, y+r, x+r, y+r)
-			v.addSegment(x+r, y+r, x+r, y-r)
-			v.addSegment(x+r, y-r, x-r, y-r)
-		}
-	*/
 	for _, block := range blocks {
 		v.addSegmentsFromRectangle(block)
 	}
@@ -137,7 +125,6 @@ func Area2DPolygon(points []*geom.Coord) float64 {
 	n := len(points)
 	closedPoints := append(points, points[0])
 	area := 0.0
-	//var i, j, k int // indices
 
 	if n < 3 {
 		return 0
@@ -152,15 +139,12 @@ func Area2DPolygon(points []*geom.Coord) float64 {
 
 // UpdateCenterLocation updates the center and recalculates all angles
 func (v *Viewshed) UpdateCenterLocation(x float64, y float64) {
-	//y = -y
 	v.Center = geom.Coord{X: x, Y: y}
 
 	for _, segment := range v.Segments {
 		dx := 0.5*(segment.P1.X+segment.P2.X) - x
 		dy := 0.5*(segment.P1.Y+segment.P2.Y) - y
 		segment.d = dx*dx + dy*dy
-		//segment.P1.angle = math.Mod(math.Atan2(segment.P1.Y-y, segment.P1.X-x)+2*math.Pi, 2*math.Pi)
-		//segment.P2.angle = math.Mod(math.Atan2(segment.P2.Y-y, segment.P2.X-x)+2*math.Pi, 2*math.Pi)
 
 		segment.P1.angle = math.Atan2(segment.P1.Y-y, segment.P1.X-x)
 		segment.P2.angle = math.Atan2(segment.P2.Y-y, segment.P2.X-x)
@@ -174,23 +158,11 @@ func (v *Viewshed) UpdateCenterLocation(x float64, y float64) {
 		}
 
 		segment.P1.begin = dAngle > 0
-		//segment.P1.begin = segment.P1.angle < segment.P2.angle
 		segment.P2.begin = !segment.P1.begin
-
-		//log.Printf("p:%.0f, a:%.3f", segment.P1.Point, segment.P1.angle*180/math.Pi)
-		//log.Printf("p:%.0f, a:%.3f", segment.P2.Point, segment.P2.angle*180/math.Pi)
 	}
 }
 
 func isWithinRange(target float64, a float64, b float64) bool {
-	/*
-		if math.Mod((a-b)+2*math.Pi, 2*math.Pi) >= 180 {
-			tmp := a
-			a = b
-			b = tmp
-		}
-	*/
-
 	if math.Abs(a-b) > math.Pi {
 		return a >= target && b >= target || a <= target && b <= target
 	}
@@ -212,20 +184,12 @@ func (v *Viewshed) Sweep() {
 	v.ViewablePolygon = v.ViewablePolygon[:0] // clear output
 	sort.Sort(ByAngleThenBegin(v.endpoints))
 
-	//var previousSegment *Segment
 	for i := 0; i < len(v.endpoints); i += 2 {
 		e := v.endpoints[i]
 
-		//log.Printf("##################%.0f, %.3f, %b", e.Point, e.angle*180/math.Pi, e.begin)
 		var intersectedSegments []*Segment
 		var hasPassThrough bool
 		for _, segment := range v.Segments {
-			//if (segment.P1.angle < e.angle && e.angle < segment.P2.angle) ||
-			//	(segment.P2.angle < e.angle && e.angle < segment.P1.angle) {
-			//isWithinRange := isWithinRange(e.angle, segment.P1.angle, segment.P2.angle)
-			//isPassThrough := isPassThrough(e, segment)
-			//log.Printf("p1: %.0f, %.3f, p2: %.0f, %.3f", segment.P1.Point, segment.P1.angle*180/math.Pi, segment.P2.Point, segment.P2.angle*180/math.Pi)
-			//log.Printf("r: %t, p: %t", isWithinRange(e.angle, segment.P1.angle, segment.P2.angle), isPassThrough(e, segment))
 			if segment != e.segment && isWithinRange(e.angle, segment.P1.angle, segment.P2.angle) {
 				isPassThrough := isPassThrough(e, segment)
 				if !isPassThrough {
@@ -236,9 +200,8 @@ func (v *Viewshed) Sweep() {
 			}
 		}
 
-		closestIntersection := e.Coord             //the intersection is the point if there isn't anything else
-		closestIntersectionDist := math.MaxFloat64 //squareDistance(&v.center, e.Point)
-		//closestIntersectionSegment := e.segment
+		closestIntersection := e.Coord //the intersection is the point if there isn't anything else
+		closestIntersectionDist := math.MaxFloat64
 
 		for _, segment := range intersectedSegments {
 			intersection := lineIntersection(&v.Center, e.Coord, segment.P1.Coord, segment.P2.Coord)
@@ -260,66 +223,5 @@ func (v *Viewshed) Sweep() {
 		} else {
 			v.ViewablePolygon = append(v.ViewablePolygon, closestIntersection)
 		}
-
-		//previousSegment = closestIntersectionSegment
 	}
-
-	/*
-		v.open = v.open[:0] // clear open
-		currentAngle := 0.0
-
-		for pass := 0; pass < 2; pass++ {
-			for _, p := range v.endpoints {
-				var currentOld *Segment
-				if len(v.open) != 0 {
-					currentOld = v.open[0]
-				}
-
-				if pass == 1 && p.angle > maxAngle {
-					break
-				}
-				if p.begin {
-					atEnd := true
-					insertionPoint := 0
-					for i, s := range v.open {
-						if !segmentInFrontOf(p.segment, s, &v.center) {
-							atEnd = false
-							break
-						}
-						insertionPoint = i
-					}
-
-					if atEnd {
-						v.open = append(v.open, p.segment)
-					} else {
-						// this spaghetti inserts an element at the insertionPoint
-						v.open = append(v.open, nil)
-						copy(v.open[insertionPoint+1:], v.open[insertionPoint:])
-						v.open[insertionPoint] = p.segment
-					}
-				} else {
-					for i, value := range v.open {
-						if value == p.segment {
-							v.open = append(v.open[:i], v.open[i+1:]...) // this looks like voodoo, but it's just deleting element i gotta love go
-							break
-						}
-					}
-				}
-
-				var currentNew *Segment
-
-				if len(v.open) != 0 {
-					currentNew = v.open[0]
-				}
-
-				if currentOld != currentNew {
-					if pass == 1 {
-						v.addTriangle(currentAngle, p.angle, currentOld)
-					}
-
-					currentAngle = p.angle
-				}
-			}
-		}
-	*/
 }
