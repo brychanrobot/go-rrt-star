@@ -12,8 +12,9 @@ import (
 // FmtStar holds all of the information for an rrt*
 type FmtStar struct {
 	PlannerBase
-	rtreeOpen *rtreego.Rtree
-	open      []*Node
+	rtreeOpen    *rtreego.Rtree
+	open         []*Node
+	obstacleArea float64
 }
 
 // NewFmtStar creates a new rrt Star
@@ -43,6 +44,11 @@ func NewFmtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 	endNode := &Node{parent: nil, Coord: *endPoint, CumulativeCost: 0}
 	rtree.Insert(endNode)
 
+	obstacleArea := 0.0
+	for _, obstacle := range obstacleRects {
+		obstacleArea += obstacle.Width() * obstacle.Height()
+	}
+
 	fmtStar := &FmtStar{
 		PlannerBase: PlannerBase{
 			obstacleImage:      obstacleImage,
@@ -61,7 +67,8 @@ func NewFmtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegmen
 			NumNodes:           1,
 			haltonX:            halton.NewHaltonSampler(19),
 			haltonY:            halton.NewHaltonSampler(23),
-			unseenAreaMap:      make(map[geom.Coord]float64)},
+			unseenAreaMap:      make(map[geom.Coord]float64),
+			obstacleArea:       obstacleArea},
 
 		rtreeOpen: rtreeOpen}
 

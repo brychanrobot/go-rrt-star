@@ -54,6 +54,7 @@ type PlannerBase struct {
 	haltonX            *halton.HaltonSampler
 	haltonY            *halton.HaltonSampler
 	unseenAreaMap      map[geom.Coord]float64
+	obstacleArea       float64
 }
 
 //Getters
@@ -132,7 +133,7 @@ func (p *PlannerBase) getUnseenArea(point *geom.Coord) float64 {
 	//return (p.mapArea - p.getViewArea(point)) / p.mapArea
 	value := p.unseenAreaMap[*point]
 	if value == 0 {
-		value = (p.mapArea - p.getViewArea(point)) / p.mapArea
+		value = (p.mapArea - p.obstacleArea - p.getViewArea(point)) / (p.mapArea + p.obstacleArea)
 		p.unseenAreaMap[*point] = value
 	}
 
@@ -214,7 +215,7 @@ func (p *PlannerBase) MoveStartPoint(dx, dy float64) {
 		p.Root.Rewire(newRoot, p.getCost(&newRoot.Coord, &p.Root.Coord))
 		p.Root = newRoot
 
-		_, _, neighbors, neighborCosts := p.getBestNeighbor(&p.Root.Coord, p.rewireNeighborhood)
+		_, _, neighbors, neighborCosts := p.getBestNeighbor(&p.Root.Coord, p.rewireNeighborhood*2.0)
 		for i, neighbor := range neighbors {
 			if !p.lineIntersectsObstacle(p.Root.Coord, neighbor.Coord, 200) {
 				if neighborCosts[i]+p.Root.CumulativeCost < neighbor.CumulativeCost {
