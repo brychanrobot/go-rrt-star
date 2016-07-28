@@ -538,9 +538,9 @@ func main() {
 		var obstacleImage *image.Gray
 		obstacleRects, obstacleImage = rrtstar.GenerateObstacles(width, height, *numObstacles)
 		if *startWithFmt {
-			planner = rrtstar.NewFmtStar(obstacleImage, obstacleRects, 10, width, height, nil, nil)
+			planner = rrtstar.NewFmtStar(obstacleImage, obstacleRects, 6, width, height, nil, nil)
 		} else {
-			planner = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 20, width, height, nil, nil)
+			planner = rrtstar.NewRrtStar(obstacleImage, obstacleRects, 12, width, height, nil, nil)
 		}
 
 		if *renderCostmap {

@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	unseenK   = 1.0
-	distanceK = 4.0
+	unseenK   = 4.0
+	distanceK = 0.00
 )
 
 type Planner interface {

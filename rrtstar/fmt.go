@@ -21,7 +21,7 @@ type FmtStar struct {
 func NewFmtStar(obstacleImage *image.Gray, obstacleRects []*geom.Rect, maxSegment float64, width, height int,
 	startPoint, endPoint *geom.Coord) *FmtStar {
 
-	nodeThreshold := uint64(0.01 * float64(width*height))
+	nodeThreshold := uint64(0.015 * float64(width*height))
 
 	if startPoint == nil {
 		startPoint = randomOpenAreaPoint(obstacleImage, width, height)
