@@ -31,6 +31,7 @@ type Planner interface {
 	Sample()
 	RenderUnseenCostMap(filename string)
 	MoveStartPoint(dx, dy float64)
+	MoveEndPoint(dx, dy float64)
 }
 
 type PlannerBase struct {
@@ -215,13 +216,32 @@ func (p *PlannerBase) MoveStartPoint(dx, dy float64) {
 		p.Root.Rewire(newRoot, p.getCost(&newRoot.Coord, &p.Root.Coord))
 		p.Root = newRoot
 
-		_, _, neighbors, neighborCosts := p.getBestNeighbor(&p.Root.Coord, p.rewireNeighborhood*2.0)
+		_, _, neighbors, neighborCosts := p.getBestNeighbor(&p.Root.Coord, p.rewireNeighborhood*1.5)
 		for i, neighbor := range neighbors {
 			if !p.lineIntersectsObstacle(p.Root.Coord, neighbor.Coord, 200) {
 				if neighborCosts[i]+p.Root.CumulativeCost < neighbor.CumulativeCost {
 					neighbor.Rewire(p.Root, neighborCosts[i])
 				}
 			}
+		}
+	}
+}
+
+func (p *PlannerBase) MoveEndPoint(dx, dy float64) {
+	if dx != 0 || dy != 0 {
+		p.EndPoint.X += dx
+		p.EndPoint.Y += dy
+
+		bestNeighbor, bestCost, _, _ := p.getBestNeighbor(p.EndPoint, p.rewireNeighborhood)
+
+		if bestNeighbor != nil {
+			p.endNode = bestNeighbor.AddAndCreateChild(*p.EndPoint, bestCost, 0.0)
+			p.NumNodes++
+
+			p.rtree.Insert(p.endNode)
+		} else {
+			p.EndPoint.X -= dx
+			p.EndPoint.Y -= dy
 		}
 	}
 }

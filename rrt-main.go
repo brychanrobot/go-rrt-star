@@ -45,6 +45,9 @@ var (
 	moveX float64
 	moveY float64
 
+	moveEndX float64
+	moveEndY float64
+
 	waldos []*rrtstar.Waldo
 )
 
@@ -451,8 +454,8 @@ func display(iteration uint64, showTree, showViewshed, showPath, showIterationCo
 	if showPath {
 		drawPath(planner.GetBestPath(), colorful.Hsv(100, 1, 1), 3)
 
-		drawPoint(*planner.GetStartPoint(), 20, colorful.Hsv(20, 1, 1))
 		drawPoint(*planner.GetEndPoint(), 20, colorful.Hsv(60, 1, 1))
+		drawPoint(*planner.GetStartPoint(), 20, colorful.Hsv(20, 1, 1))
 	}
 
 	if showIterationCount {
@@ -563,6 +566,8 @@ func main() {
 				if sw.Get().Seconds() > 0.050 {
 					planner.MoveStartPoint(moveX, moveY)
 
+					planner.MoveEndPoint(moveEndX, moveEndY)
+
 					for _, waldo := range waldos {
 						waldo.MoveWaldo()
 					}
@@ -662,6 +667,34 @@ func onKey(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods 
 			moveX = 5
 		} else {
 			moveX = 0
+		}
+	case key == glfw.KeyW:
+		//log.Println("right")
+		if action != glfw.Release {
+			moveEndY = -3
+		} else {
+			moveEndY = 0
+		}
+	case key == glfw.KeyS:
+		//log.Println("right")
+		if action != glfw.Release {
+			moveEndY = 3
+		} else {
+			moveEndY = 0
+		}
+	case key == glfw.KeyA:
+		//log.Println("right")
+		if action != glfw.Release {
+			moveEndX = -3
+		} else {
+			moveEndX = 0
+		}
+	case key == glfw.KeyD:
+		//log.Println("right")
+		if action != glfw.Release {
+			moveEndX = 3
+		} else {
+			moveEndX = 0
 		}
 	case key == glfw.KeyP:
 		//planner.Prune(100)
