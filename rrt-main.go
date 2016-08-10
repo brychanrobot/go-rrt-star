@@ -478,7 +478,7 @@ func main() {
 	isLooping := flag.Bool("loop", false, "will loop with random obstacles if set")
 	numObstacles := flag.Int("obstacles", 15, "sets the number of obstacles generated")
 	monitorNum := flag.Int("monitor", 0, "sets which monitor to display on in fullscreen. default to primary")
-	iterations := flag.Int("i", 1000000, "sets the number of iterations. default to 1000000")
+	iterations := flag.Int("i", -1, "sets the number of iterations. default to 1000000")
 	//iterationsPerFrame := flag.Int("if", 50, "sets the number of iterations to evaluate between frames")
 	record := flag.Bool("r", false, "records the session")
 	renderCostmap := flag.Bool("cm", false, "renders a costmap before executing")
@@ -560,7 +560,7 @@ func main() {
 		sw := stopwatch.NewStopwatch()
 		for i := 0; !window.ShouldClose(); i++ {
 
-			if i < *iterations {
+			if i < *iterations || *iterations == -1 {
 				planner.Sample()
 				//if i%*iterationsPerFrame == 0 {
 				if sw.Get().Seconds() > 0.050 {
@@ -618,7 +618,7 @@ func saveFrame(width int, height int, toFile bool) {
 		filename := fmt.Sprintf("video/%06d.png", frameCount)
 		frameCount++
 
-		os.Mkdir("video", os.ModeDir)
+		os.Mkdir("video", 0755)
 		outFile, _ := os.Create(filename)
 		defer outFile.Close()
 
